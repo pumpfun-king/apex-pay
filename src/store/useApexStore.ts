@@ -195,9 +195,9 @@ export const DEFAULT_CLIENT_RATE_CONFIG: RateConfig = {
   minTradeUsd: 1.0,
   maxTradeUsd: 50000.0,
   treasuryWallet: "0x05179071c4a8298239bC1db971284EbbC450409D",
-  bankName: "Providus Corporate Treasury",
-  bankAccountNumber: "9948201948",
-  bankAccountName: "CRYPTOHIVE DIGITAL TREASURY LTD",
+  bankName: "",
+  bankAccountNumber: "",
+  bankAccountName: "",
   bankRoutingNote:
     "Include your exact Cryptohive Order Reference ID in the transfer narration/memo.",
   updatedBy: "SYSTEM_BOOTSTRAP",

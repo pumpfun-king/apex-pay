@@ -313,6 +313,7 @@ export default function CryptohiveExchangePage() {
   const fiatSymbol = rateConfig?.fiatSymbol || "₦";
   const fiatCurrency = rateConfig?.fiatCurrency || "NGN";
   const minTradeUsd = rateConfig?.minTradeUsd || 1.0;
+  const hasAdminBankDetails = Boolean(rateConfig?.bankAccountNumber?.trim() && rateConfig?.bankName?.trim());
 
   const minBuyFiatRequired = minTradeUsd * buyRate;
   const currentBuyFiat = parseFloat(buyFiatInput) || 0;
@@ -2123,12 +2124,12 @@ export default function CryptohiveExchangePage() {
                   </div>
 
                   {/* Designated Corporate Bank Account & User Reference Inputs */}
-                  {rateConfig && (
+                  {hasAdminBankDetails ? (
                     <div className="p-4 sm:p-5 rounded-2xl bg-[#F7F8FA] hive-field-card space-y-4">
                       <div className="flex items-center justify-between gap-2 flex-wrap">
                         <span className="text-xs font-extrabold text-[#0A0B0E] flex items-center gap-1.5">
                           <Building2 className="w-4 h-4 text-[#D97706]" />
-                          NGN Bank Details
+                          {fiatCurrency} Bank Details
                         </span>
                         <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#FFC700]/30 text-[#92400E]">
                           Transfer {formatCurrency(currentBuyFiat, fiatSymbol)}
@@ -2141,7 +2142,7 @@ export default function CryptohiveExchangePage() {
                             Bank
                           </span>
                           <span className="font-bold text-[#0A0B0E]">
-                            {rateConfig?.bankName || "Providus Corporate Treasury"}
+                            {rateConfig?.bankName}
                           </span>
                         </div>
                         <div className="p-3 rounded-xl bg-white border border-black/5 flex items-center justify-between">
@@ -2150,15 +2151,13 @@ export default function CryptohiveExchangePage() {
                               Account Number
                             </span>
                             <span className="font-mono font-extrabold text-[#0A0B0E]">
-                              {rateConfig?.bankAccountNumber || "9948201948"}
+                              {rateConfig?.bankAccountNumber}
                             </span>
                           </div>
                           <button
                             type="button"
                             onClick={() =>
-                              handleCopy(rateConfig?.bankAccountNumber || "9948201948",
-                                "bank_acc"
-                              )
+                              handleCopy(rateConfig?.bankAccountNumber || "", "bank_acc")
                             }
                             className="p-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-[#0A0B0E]"
                             title="Copy Account Number"
@@ -2175,12 +2174,12 @@ export default function CryptohiveExchangePage() {
                             Account Name
                           </span>
                           <span className="font-bold text-[#0A0B0E] text-[11px]">
-                            {rateConfig?.bankAccountName || "CRYPTOHIVE DIGITAL TREASURY LTD"}
+                            {rateConfig?.bankAccountName}
                           </span>
                         </div>
                       </div>
 
-                      {/* Auto-Generated Unique Payment Reference (After Account Name) + Copy Button & Warning Instruction */}
+                      {/* Auto-Generated Unique Payment Reference */}
                       <div className="p-3.5 rounded-xl bg-white border border-[#FDE68A] space-y-2.5">
                         <div className="flex items-center justify-between gap-2">
                           <div>
@@ -2222,32 +2221,67 @@ export default function CryptohiveExchangePage() {
                               {paymentReference}
                             </strong>{" "}
                             into your bank transfer narration / transaction
-                            reference so your payment is matched and confirmed
-                            fast.
+                            reference so your payment is matched and confirmed fast.
                           </span>
                         </div>
                       </div>
                     </div>
+                  ) : (
+                    <div className="p-5 rounded-2xl bg-[#FFF8DB] border border-[#FDE68A] text-center space-y-3.5">
+                      <div className="w-12 h-12 mx-auto rounded-full bg-[#FFC700]/25 flex items-center justify-center text-[#B45309]">
+                        <AlertCircle className="w-6 h-6" />
+                      </div>
+                      <div className="space-y-1">
+                        <h4 className="text-sm font-extrabold text-[#0A0B0E]">
+                          Payment to this Country is Currently Unavailable
+                        </h4>
+                        <p className="text-xs text-[#92400E] max-w-sm mx-auto leading-relaxed">
+                          Fiat deposit channels for {fiatCurrency} are currently unavailable or undergoing maintenance. Bank account details have not been assigned by the administrator.
+                        </p>
+                      </div>
+                      <div className="p-3 rounded-xl bg-white border border-black/5 text-[11px] text-zinc-500">
+                        Please check back shortly, trade via Sell USDT, or contact our 24/7 Desk Administrator.
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setFlowStep("AMOUNT")}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#0A0B0E] text-white text-xs font-bold hover:bg-zinc-800 transition-colors"
+                      >
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                        <span>Return to Exchange</span>
+                      </button>
+                    </div>
                   )}
 
-                  {/* Black Pill Primary CTA */}
+                  {/* Primary CTA */}
                   <div className="pt-1">
-                    <button
-                      type="submit"
-                      disabled={isSubmittingBuy || isBuyBelowMinimum}
-                      className="w-full py-4 px-6 rounded-full bg-[#0A0B0E] hover:bg-zinc-800 disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xs sm:text-sm shadow-xl transition-all flex items-center justify-center gap-2 active:scale-[0.99]"
-                    >
-                      {isSubmittingBuy ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 animate-spin text-[#FFC700]" />
-                          <span>Processing...</span>
-                        </>
-                      ) : !isConnected ? (
-                        <span>Connect Wallet to Submit Buy Order</span>
-                      ) : (
-                        <span>Payment Done</span>
-                      )}
-                    </button>
+                    {hasAdminBankDetails ? (
+                      <button
+                        type="submit"
+                        disabled={isSubmittingBuy || isBuyBelowMinimum}
+                        className="w-full py-4 px-6 rounded-full bg-[#0A0B0E] hover:bg-zinc-800 disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xs sm:text-sm shadow-xl transition-all flex items-center justify-center gap-2 active:scale-[0.99]"
+                      >
+                        {isSubmittingBuy ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin text-[#FFC700]" />
+                            <span>Processing...</span>
+                          </>
+                        ) : !isConnected ? (
+                          <span>Connect Wallet to Submit Buy Order</span>
+                        ) : (
+                          <span>Payment Done</span>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full py-4 px-6 rounded-full bg-zinc-200 text-zinc-400 font-bold text-xs sm:text-sm cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        <AlertCircle className="w-4 h-4" />
+                        <span>Payment to this Country is Unavailable</span>
+                      </button>
+                    )}
                   </div>
                 </form>
               ) : (
