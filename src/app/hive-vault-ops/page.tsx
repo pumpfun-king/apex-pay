@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { Navbar } from "@/components/Navbar";
 import { WalletConnectModal } from "@/components/WalletConnectModal";
 import { ToastContainer } from "@/components/ToastContainer";
@@ -110,13 +110,21 @@ export default function CryptohiveSecretAdminVaultPage() {
   const [selectedNewFiatToAdd, setSelectedNewFiatToAdd] = useState<string>("");
   const [expandedChannelCode, setExpandedChannelCode] = useState<string | null>("NGN");
 
+  // Prevent background store polling from wiping user edits
+  const hasLoadedInitialChannelsRef = useRef(false);
+
   useEffect(() => {
+    if (hasLoadedInitialChannelsRef.current) return;
+
     if (fiatChannels && fiatChannels.length > 0) {
       setAdminChannels(fiatChannels);
+      hasLoadedInitialChannelsRef.current = true;
     } else if (rateConfig?.fiatChannelsJson) {
       setAdminChannels(parseFiatChannels(rateConfig.fiatChannelsJson));
-    } else {
+      hasLoadedInitialChannelsRef.current = true;
+    } else if (rateConfig) {
       setAdminChannels([...DEFAULT_INITIAL_FIAT_CHANNELS]);
+      hasLoadedInitialChannelsRef.current = true;
     }
   }, [fiatChannels, rateConfig]);
 
@@ -207,21 +215,23 @@ export default function CryptohiveSecretAdminVaultPage() {
     });
   };
 
+  // Prevent background store polling from wiping rate & treasury edits
+  const hasLoadedInitialRatesRef = useRef(false);
+
   useEffect(() => {
-    if (rateConfig) {
-      if (!buyRateInput) {
-        setBuyRateInput(String(rateConfig.buyRate));
-        setSellRateInput(String(rateConfig.sellRate));
-        setUsdRefInput(String(rateConfig.usdReferenceRate));
-        const initSpread = rateConfig.buyRate - rateConfig.sellRate;
-        setSpreadAmountInput(
-          (!isNaN(initSpread) && initSpread > 0 ? initSpread : 37.49).toFixed(2)
-        );
-        setTreasuryWalletInput(rateConfig.treasuryWallet);
-        setBankNameInput(rateConfig.bankName);
-        setBankAccNumberInput(rateConfig.bankAccountNumber);
-        setBankAccNameInput(rateConfig.bankAccountName);
-      }
+    if (rateConfig && !hasLoadedInitialRatesRef.current) {
+      hasLoadedInitialRatesRef.current = true;
+      setBuyRateInput(String(rateConfig.buyRate));
+      setSellRateInput(String(rateConfig.sellRate));
+      setUsdRefInput(String(rateConfig.usdReferenceRate));
+      const initSpread = rateConfig.buyRate - rateConfig.sellRate;
+      setSpreadAmountInput(
+        (!isNaN(initSpread) && initSpread > 0 ? initSpread : 37.49).toFixed(2)
+      );
+      setTreasuryWalletInput(rateConfig.treasuryWallet);
+      setBankNameInput(rateConfig.bankName);
+      setBankAccNumberInput(rateConfig.bankAccountNumber);
+      setBankAccNameInput(rateConfig.bankAccountName);
 
       const netWallets = parseNetworkTreasuryWallets(rateConfig.treasuryWallet);
       setEthTreasuryInput(netWallets[1] || "");
@@ -234,8 +244,14 @@ export default function CryptohiveSecretAdminVaultPage() {
         rateConfig.bankRoutingNote
       );
       setWhitelistedWallets(currentAdmins);
+
+      if (fiatChannels && fiatChannels.length > 0) {
+        setAdminChannels(fiatChannels);
+      } else if (rateConfig.fiatChannelsJson) {
+        setAdminChannels(parseFiatChannels(rateConfig.fiatChannelsJson));
+      }
     }
-  }, [rateConfig, buyRateInput]);
+  }, [rateConfig]);
 
   const handleAddAdminWallet = () => {
     const clean = newAdminWalletInput.trim();
@@ -602,6 +618,12 @@ export default function CryptohiveSecretAdminVaultPage() {
         rateConfig.bankRoutingNote
       );
       setWhitelistedWallets(currentAdmins);
+
+      if (fiatChannels && fiatChannels.length > 0) {
+        setAdminChannels(fiatChannels);
+      } else if (rateConfig.fiatChannelsJson) {
+        setAdminChannels(parseFiatChannels(rateConfig.fiatChannelsJson));
+      }
 
       addToast({
         title: "Fields Restored from Database",
