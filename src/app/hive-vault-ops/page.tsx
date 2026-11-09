@@ -49,13 +49,23 @@ import {
   ShieldCheck,
   ArrowRight,
   LogOut,
+  Globe,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
+import {
+  FiatChannel,
+  GLOBAL_FIAT_METADATA,
+  parseFiatChannels,
+  DEFAULT_INITIAL_FIAT_CHANNELS,
+} from "@/lib/fiatChannels";
 
 export default function CryptohiveSecretAdminVaultPage() {
   const {
     walletAddress,
     isConnected,
     rateConfig,
+    fiatChannels,
     adminOrders,
     adminNotifications,
     unreadNotificationsCount,
@@ -93,6 +103,22 @@ export default function CryptohiveSecretAdminVaultPage() {
   const [spreadAmountInput, setSpreadAmountInput] = useState<string>("");
   const [isSavingRates, setIsSavingRates] = useState(false);
   const [isSyncingLive, setIsSyncingLive] = useState(false);
+
+  // Multi-Fiat Rails & Permissions Management State
+  const [adminChannels, setAdminChannels] = useState<FiatChannel[]>([]);
+  const [isSavingChannels, setIsSavingChannels] = useState(false);
+  const [selectedNewFiatToAdd, setSelectedNewFiatToAdd] = useState<string>("");
+  const [expandedChannelCode, setExpandedChannelCode] = useState<string | null>("NGN");
+
+  useEffect(() => {
+    if (fiatChannels && fiatChannels.length > 0) {
+      setAdminChannels(fiatChannels);
+    } else if (rateConfig?.fiatChannelsJson) {
+      setAdminChannels(parseFiatChannels(rateConfig.fiatChannelsJson));
+    } else {
+      setAdminChannels([...DEFAULT_INITIAL_FIAT_CHANNELS]);
+    }
+  }, [fiatChannels, rateConfig]);
 
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [typeFilter, setTypeFilter] = useState<string>("ALL");
@@ -405,6 +431,150 @@ export default function CryptohiveSecretAdminVaultPage() {
       }
     } finally {
       setIsSavingRates(false);
+    }
+  };
+
+  const handleToggleBuyChannel = (code: string) => {
+    setAdminChannels((prev) =>
+      prev.map((c) =>
+        c.code === code ? { ...c, buyEnabled: !c.buyEnabled } : c
+      )
+    );
+  };
+
+  const handleToggleSellChannel = (code: string) => {
+    setAdminChannels((prev) =>
+      prev.map((c) =>
+        c.code === code ? { ...c, sellEnabled: !c.sellEnabled } : c
+      )
+    );
+  };
+
+  const handleChannelFieldChange = (
+    code: string,
+    field: keyof FiatChannel,
+    val: any
+  ) => {
+    setAdminChannels((prev) =>
+      prev.map((c) => {
+        if (c.code !== code) return c;
+        const updated = { ...c, [field]: val };
+        if (field === "usdReferenceRate") {
+          const ref = Number(val) || 1;
+          updated.buyRate = Number(
+            (ref * (1 + (updated.buySpreadPercent || 1.8) / 100)).toFixed(2)
+          );
+          updated.sellRate = Number(
+            (ref * (1 - (updated.sellSpreadPercent || 1.5) / 100)).toFixed(2)
+          );
+        } else if (field === "buySpreadPercent") {
+          const spread = Number(val) || 0;
+          updated.buyRate = Number(
+            ((updated.usdReferenceRate || 1) * (1 + spread / 100)).toFixed(2)
+          );
+        } else if (field === "sellSpreadPercent") {
+          const spread = Number(val) || 0;
+          updated.sellRate = Number(
+            ((updated.usdReferenceRate || 1) * (1 - spread / 100)).toFixed(2)
+          );
+        }
+        return updated;
+      })
+    );
+  };
+
+  const handleAddNewFiatChannel = () => {
+    if (!selectedNewFiatToAdd) return;
+    const meta = GLOBAL_FIAT_METADATA[selectedNewFiatToAdd];
+    if (!meta) return;
+
+    if (adminChannels.some((c) => c.code === meta.code)) {
+      addToast({
+        title: "Currency Already Listed",
+        description: `${meta.name} (${meta.code}) is already in your rails configuration.`,
+        variant: "info",
+      });
+      return;
+    }
+
+    const newChannel: FiatChannel = {
+      code: meta.code,
+      name: meta.name,
+      symbol: meta.symbol,
+      flag: meta.flag,
+      usdReferenceRate: meta.defaultRate,
+      buyRate: Number((meta.defaultRate * 1.018).toFixed(2)),
+      sellRate: Number((meta.defaultRate * 0.982).toFixed(2)),
+      buySpreadPercent: 1.8,
+      sellSpreadPercent: 1.5,
+      buyEnabled: false,
+      sellEnabled: false,
+      minTradeUsd: 1.0,
+      maxTradeUsd: 50000.0,
+      bankName: "",
+      bankAccountNumber: "",
+      bankAccountName: "",
+      bankRoutingNote: "",
+    };
+
+    setAdminChannels((prev) => [...prev, newChannel]);
+    setExpandedChannelCode(meta.code);
+    setSelectedNewFiatToAdd("");
+    addToast({
+      title: "Fiat Channel Added",
+      description: `Added ${meta.name} (${meta.code}). Please enter bank details and toggle permissions to activate.`,
+      variant: "success",
+    });
+  };
+
+  const handleRemoveFiatChannel = (code: string) => {
+    if (adminChannels.length <= 1) {
+      addToast({
+        title: "Cannot Remove Last Currency",
+        description: "You must keep at least one fiat currency channel.",
+        variant: "error",
+      });
+      return;
+    }
+    setAdminChannels((prev) => prev.filter((c) => c.code !== code));
+    addToast({
+      title: "Fiat Channel Removed",
+      description: `Removed ${code} from active rails. Click Save to persist.`,
+      variant: "info",
+    });
+  };
+
+  const handleSaveMultiFiatRails = async () => {
+    setIsSavingChannels(true);
+    try {
+      const ngnChannel =
+        adminChannels.find((c) => c.code === "NGN") || adminChannels[0];
+      const payload: any = {
+        fiatChannels: adminChannels,
+        adminAddress: walletAddress || "",
+      };
+      if (ngnChannel) {
+        payload.buyRate = ngnChannel.buyRate;
+        payload.sellRate = ngnChannel.sellRate;
+        payload.usdReferenceRate = ngnChannel.usdReferenceRate;
+        if (ngnChannel.bankName) payload.bankName = ngnChannel.bankName;
+        if (ngnChannel.bankAccountNumber)
+          payload.bankAccountNumber = ngnChannel.bankAccountNumber;
+        if (ngnChannel.bankAccountName)
+          payload.bankAccountName = ngnChannel.bankAccountName;
+      }
+
+      const ok = await updateRates(payload);
+      if (ok) {
+        await fetchRates();
+        addToast({
+          title: "Multi-Fiat Rails Saved! 🚀",
+          description: `Persisted ${adminChannels.length} fiat channels with their buy/sell permissions and corporate bank rails.`,
+          variant: "success",
+        });
+      }
+    } finally {
+      setIsSavingChannels(false);
     }
   };
 
@@ -1389,6 +1559,404 @@ export default function CryptohiveSecretAdminVaultPage() {
                 ))
               )}
             </div>
+          </div>
+        </section>
+
+        {/* =========================================================================
+            MULTI-FIAT RAILS & PERMISSIONS ENGINE
+            Admin can toggle Buy/Sell availability per local currency, set custom bank
+            accounts per currency, configure oracle reference rates and spreads, and add
+            new fiats from the global metadata catalog.
+           ========================================================================= */}
+        <section className="rounded-[24px] sm:rounded-[32px] bg-white border border-black/10 shadow-xl overflow-hidden hive-field-card">
+          {/* Header */}
+          <div className="p-5 sm:p-7 border-b border-black/[0.06] bg-[#FAFAFA] flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Globe className="w-5 h-5 text-[#D97706]" />
+                <h3 className="text-base sm:text-lg font-black text-[#0A0B0E]">
+                  Multi-Fiat Rails &amp; Currency Permissions
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full bg-[#0A0B0E] text-[#FFC700] text-[10px] font-black uppercase tracking-wider">
+                  {adminChannels.length} Rails Active
+                </span>
+              </div>
+              <p className="text-xs text-zinc-500">
+                Control trade permissions (Buy / Sell), set corporate bank accounts, and configure profit spreads for each world currency.
+              </p>
+            </div>
+
+            {/* Actions: Add New Fiat + Save All Channels */}
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {/* Dropdown to add unlisted fiat */}
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={selectedNewFiatToAdd}
+                  onChange={(e) => setSelectedNewFiatToAdd(e.target.value)}
+                  className="px-3 py-2 rounded-xl bg-white border border-black/10 text-xs font-bold text-[#0A0B0E] focus:outline-none focus:border-[#0A0B0E]"
+                >
+                  <option value="">+ Add Currency Channel...</option>
+                  {Object.values(GLOBAL_FIAT_METADATA)
+                    .filter(
+                      (meta) =>
+                        !adminChannels.some((c) => c.code === meta.code)
+                    )
+                    .map((meta) => (
+                      <option key={meta.code} value={meta.code}>
+                        {meta.flag} {meta.code} - {meta.name} ({meta.symbol})
+                      </option>
+                    ))}
+                </select>
+                <button
+                  type="button"
+                  disabled={!selectedNewFiatToAdd}
+                  onClick={handleAddNewFiatChannel}
+                  className="px-3.5 py-2 rounded-xl bg-[#FFF8DB] hover:bg-[#FDE68A] text-[#92400E] border border-[#FDE68A] font-bold text-xs disabled:opacity-40 transition-all flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add</span>
+                </button>
+              </div>
+
+              <button
+                type="button"
+                disabled={isSavingChannels}
+                onClick={handleSaveMultiFiatRails}
+                className="px-5 py-2 rounded-xl bg-[#0A0B0E] hover:bg-zinc-800 disabled:opacity-50 text-white font-bold text-xs shadow-md transition-all flex items-center gap-2"
+              >
+                {isSavingChannels ? (
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#FFC700]" />
+                ) : (
+                  <Save className="w-3.5 h-3.5 text-[#FFC700]" />
+                )}
+                <span>Save All Multi-Fiat Rails</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Channel Cards Grid */}
+          <div className="p-5 sm:p-7 space-y-4">
+            {adminChannels.map((channel) => {
+              const isExpanded = expandedChannelCode === channel.code;
+              const hasBank = Boolean(
+                channel.bankAccountNumber?.trim() && channel.bankName?.trim()
+              );
+
+              return (
+                <div
+                  key={channel.code}
+                  className={`rounded-2xl border transition-all ${
+                    isExpanded
+                      ? "border-[#FFC700] bg-[#FFFDF6] shadow-sm"
+                      : "border-black/[0.06] bg-[#F9FAFB] hover:border-black/20"
+                  }`}
+                >
+                  {/* Card Summary Header */}
+                  <div className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className="text-3xl shrink-0 leading-none">
+                        {channel.flag || "🌐"}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-extrabold text-sm sm:text-base text-[#0A0B0E]">
+                            {channel.code}
+                          </span>
+                          <span className="text-xs text-zinc-500 font-semibold">
+                            {channel.name}
+                          </span>
+                          <span className="font-mono text-xs px-2 py-0.5 rounded bg-black/5 text-[#0A0B0E] font-bold">
+                            {channel.symbol}
+                          </span>
+                        </div>
+                        <div className="text-xs text-zinc-500 flex items-center gap-3 mt-1 flex-wrap font-mono">
+                          <span>Ref: {channel.usdReferenceRate} / USD</span>
+                          <span>•</span>
+                          <span>
+                            Buy: {channel.buyRate} {channel.symbol}
+                          </span>
+                          <span>•</span>
+                          <span>
+                            Sell: {channel.sellRate} {channel.symbol}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick Status Toggles & Expand Arrow */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {/* Buy Toggle Checkbox */}
+                      <label className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-black/10 cursor-pointer select-none hover:bg-zinc-50">
+                        <input
+                          type="checkbox"
+                          checked={channel.buyEnabled}
+                          onChange={() => handleToggleBuyChannel(channel.code)}
+                          className="rounded text-[#0A0B0E] focus:ring-0 cursor-pointer w-4 h-4"
+                        />
+                        <span className="text-xs font-bold text-[#0A0B0E] flex items-center gap-1.5">
+                          <span>Buy (Fiat→USDT)</span>
+                          {channel.buyEnabled ? (
+                            hasBank ? (
+                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
+                                Active
+                              </span>
+                            ) : (
+                              <span
+                                className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-bold"
+                                title="Bank account details not yet entered"
+                              >
+                                Bank Missing
+                              </span>
+                            )
+                          ) : (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 font-bold">
+                              Paused
+                            </span>
+                          )}
+                        </span>
+                      </label>
+
+                      {/* Sell Toggle Checkbox */}
+                      <label className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-black/10 cursor-pointer select-none hover:bg-zinc-50">
+                        <input
+                          type="checkbox"
+                          checked={channel.sellEnabled}
+                          onChange={() => handleToggleSellChannel(channel.code)}
+                          className="rounded text-[#0A0B0E] focus:ring-0 cursor-pointer w-4 h-4"
+                        />
+                        <span className="text-xs font-bold text-[#0A0B0E] flex items-center gap-1.5">
+                          <span>Sell (USDT→Fiat)</span>
+                          {channel.sellEnabled ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 font-bold">
+                              Paused
+                            </span>
+                          )}
+                        </span>
+                      </label>
+
+                      {/* Expand / Collapse Button */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setExpandedChannelCode(
+                            isExpanded ? null : channel.code
+                          )
+                        }
+                        className="p-2 rounded-xl bg-white border border-black/10 hover:bg-zinc-100 text-[#0A0B0E] transition-colors"
+                        title={
+                          isExpanded
+                            ? "Collapse Details"
+                            : "Configure Bank Details & Rates"
+                        }
+                      >
+                        {isExpanded ? (
+                          <ChevronUp className="w-4 h-4" />
+                        ) : (
+                          <ChevronDown className="w-4 h-4" />
+                        )}
+                      </button>
+
+                      {/* Remove Channel Button */}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFiatChannel(channel.code)}
+                        className="p-2 rounded-xl text-rose-500 hover:bg-rose-50 hover:text-rose-700 transition-colors"
+                        title={`Remove ${channel.code} channel`}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expanded Configuration Details */}
+                  {isExpanded && (
+                    <div className="p-4 sm:p-6 border-t border-black/5 bg-white space-y-4 rounded-b-2xl">
+                      {/* Rate & Spread Configuration for this fiat */}
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                        <div>
+                          <label className="block text-[11px] font-bold text-zinc-600 mb-1">
+                            USD Reference Rate (1 USD =)
+                          </label>
+                          <div className="flex items-center gap-1 px-3 py-2 rounded-xl bg-[#F7F8FA] border border-black/10">
+                            <span className="font-bold text-zinc-400">
+                              {channel.symbol}
+                            </span>
+                            <input
+                              type="number"
+                              step="any"
+                              value={channel.usdReferenceRate}
+                              onChange={(e) =>
+                                handleChannelFieldChange(
+                                  channel.code,
+                                  "usdReferenceRate",
+                                  parseFloat(e.target.value) || 0
+                                )
+                              }
+                              className="w-full bg-transparent font-mono font-bold text-[#0A0B0E] focus:outline-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-zinc-600 mb-1">
+                            Buy Spread (%)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.1"
+                            value={channel.buySpreadPercent}
+                            onChange={(e) =>
+                              handleChannelFieldChange(
+                                channel.code,
+                                "buySpreadPercent",
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            className="w-full px-3 py-2 rounded-xl bg-[#F7F8FA] border border-black/10 font-mono font-bold text-[#0A0B0E] focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-zinc-600 mb-1">
+                            Live Buy Rate (Fiat / USDT)
+                          </label>
+                          <input
+                            type="number"
+                            step="any"
+                            value={channel.buyRate}
+                            onChange={(e) =>
+                              handleChannelFieldChange(
+                                channel.code,
+                                "buyRate",
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            className="w-full px-3 py-2 rounded-xl bg-[#FFFDF6] border border-[#FDE68A] font-mono font-black text-[#0A0B0E] focus:outline-none"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-zinc-600 mb-1">
+                            Live Sell Rate (Fiat / USDT)
+                          </label>
+                          <input
+                            type="number"
+                            step="any"
+                            value={channel.sellRate}
+                            onChange={(e) =>
+                              handleChannelFieldChange(
+                                channel.code,
+                                "sellRate",
+                                parseFloat(e.target.value) || 0
+                              )
+                            }
+                            className="w-full px-3 py-2 rounded-xl bg-[#FFFDF6] border border-[#FDE68A] font-mono font-black text-[#0A0B0E] focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Bank Details for receiving this fiat */}
+                      <div className="pt-2 border-t border-black/5 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black uppercase tracking-wider text-[#0A0B0E] flex items-center gap-1.5">
+                            <Building2 className="w-4 h-4 text-[#D97706]" />
+                            {channel.code} Corporate Deposit Bank (Clients Pay
+                            Into This)
+                          </span>
+                          {!hasBank && (
+                            <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 font-bold">
+                              Required for Buy USDT Rails
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                          <div>
+                            <label className="block text-[11px] font-bold text-zinc-600 mb-1">
+                              Bank Name
+                            </label>
+                            <input
+                              type="text"
+                              value={channel.bankName}
+                              onChange={(e) =>
+                                handleChannelFieldChange(
+                                  channel.code,
+                                  "bankName",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="e.g. Providus Bank / Chase / Standard Bank"
+                              className="w-full px-3 py-2 rounded-xl bg-[#F7F8FA] border border-black/10 text-xs text-[#0A0B0E] focus:outline-none focus:border-[#0A0B0E]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-zinc-600 mb-1">
+                              Account / IBAN Number
+                            </label>
+                            <input
+                              type="text"
+                              value={channel.bankAccountNumber}
+                              onChange={(e) =>
+                                handleChannelFieldChange(
+                                  channel.code,
+                                  "bankAccountNumber",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="e.g. 0123456789"
+                              className="w-full px-3 py-2 rounded-xl bg-[#F7F8FA] border border-black/10 text-xs font-mono text-[#0A0B0E] focus:outline-none focus:border-[#0A0B0E]"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] font-bold text-zinc-600 mb-1">
+                              Account Holder Name
+                            </label>
+                            <input
+                              type="text"
+                              value={channel.bankAccountName}
+                              onChange={(e) =>
+                                handleChannelFieldChange(
+                                  channel.code,
+                                  "bankAccountName",
+                                  e.target.value
+                                )
+                              }
+                              placeholder="e.g. CRYPTOHIVE DIGITAL TREASURY"
+                              className="w-full px-3 py-2 rounded-xl bg-[#F7F8FA] border border-black/10 text-xs text-[#0A0B0E] focus:outline-none focus:border-[#0A0B0E]"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-zinc-600 mb-1">
+                            Routing Instructions / Payment Note (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={channel.bankRoutingNote}
+                            onChange={(e) =>
+                              handleChannelFieldChange(
+                                channel.code,
+                                "bankRoutingNote",
+                                e.target.value
+                              )
+                            }
+                            placeholder="e.g. Include Payment Reference code CHV-... in transfer memo"
+                            className="w-full px-3 py-2 rounded-xl bg-[#F7F8FA] border border-black/10 text-xs text-[#0A0B0E] focus:outline-none focus:border-[#0A0B0E]"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </section>
 

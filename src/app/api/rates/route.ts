@@ -10,6 +10,7 @@ import {
   isValidSolanaAddress,
 } from "@/lib/web3";
 import { fetchLiveMarketRates } from "@/lib/rates";
+import { parseFiatChannels } from "@/lib/fiatChannels";
 
 export const dynamic = "force-dynamic";
 
@@ -78,9 +79,12 @@ export async function GET(req: NextRequest) {
       config.bankRoutingNote
     );
 
+    const fiatChannels = parseFiatChannels((config as any)?.fiatChannelsJson);
+
     return NextResponse.json({
       success: true,
       config,
+      fiatChannels,
       liveMarket,
       isAutoTracking: !isManualFixed,
       networkTreasuryWallets,
@@ -88,9 +92,12 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.warn("Using fallback rate config:", error);
+    const fallbackFiatChannels = parseFiatChannels((DEFAULT_CONFIG_FALLBACK as any)?.fiatChannelsJson);
+
     return NextResponse.json({
       success: true,
       config: DEFAULT_CONFIG_FALLBACK,
+      fiatChannels: fallbackFiatChannels,
       liveMarket: {
         source: "Cryptohive Baseline Oracle",
         usdToNgn: DEFAULT_CONFIG_FALLBACK.usdReferenceRate,
@@ -266,6 +273,7 @@ export async function PUT(req: NextRequest) {
         bankAccountNumber: body.bankAccountNumber || currentConfig.bankAccountNumber,
         bankAccountName: body.bankAccountName || currentConfig.bankAccountName,
         bankRoutingNote: finalBankRoutingNote,
+        fiatChannelsJson: body.fiatChannels ? JSON.stringify(body.fiatChannels) : (currentConfig as any)?.fiatChannelsJson,
         updatedBy:
           body.autoTrackMarket === false
             ? "MANUAL_FIXED"

@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { ethers } from "ethers";
+import { FiatChannel, DEFAULT_INITIAL_FIAT_CHANNELS } from "@/lib/fiatChannels";
 import {
   ERC20_USDT_ABI,
   SUPPORTED_NETWORKS,
@@ -25,6 +26,8 @@ export interface RateConfig {
   bankAccountNumber: string;
   bankAccountName: string;
   bankRoutingNote: string;
+  fiatChannelsJson?: string | null;
+  fiatChannels?: FiatChannel[];
   updatedBy: string;
   updatedAt: string;
 }
@@ -110,6 +113,9 @@ interface ApexStoreState {
   // Live Rate Config
   rateConfig: RateConfig | null;
   isLoadingRates: boolean;
+  fiatChannels: FiatChannel[];
+  selectedFiatCode: string;
+  setSelectedFiatCode: (code: string) => void;
 
   // User Orders & Stats
   userOrders: OtcOrderItem[];
@@ -160,6 +166,7 @@ interface ApexStoreState {
       networkTreasuryWallets?: Record<number, string>;
       adminWallets?: string[];
       autoTrackMarket?: boolean;
+      fiatChannels?: FiatChannel[];
     }
   ) => Promise<boolean>;
   fetchUserOrders: () => Promise<void>;
@@ -219,6 +226,9 @@ export const useApexStore = create<ApexStoreState>((set, get) => ({
 
   rateConfig: DEFAULT_CLIENT_RATE_CONFIG,
   isLoadingRates: true,
+  fiatChannels: [...DEFAULT_INITIAL_FIAT_CHANNELS],
+  selectedFiatCode: "NGN",
+  setSelectedFiatCode: (code: string) => set({ selectedFiatCode: code }),
 
   userOrders: [],
   userStats: {
@@ -969,7 +979,11 @@ export const useApexStore = create<ApexStoreState>((set, get) => ({
       const res = await fetch("/api/rates", { cache: "no-store" });
       const data = await res.json();
       if (data.success && data.config) {
-        set({ rateConfig: data.config, isLoadingRates: false });
+        set({
+          rateConfig: data.config,
+          fiatChannels: data.fiatChannels || get().fiatChannels,
+          isLoadingRates: false,
+        });
       }
     } catch {
       set({ isLoadingRates: false });
@@ -1000,7 +1014,7 @@ export const useApexStore = create<ApexStoreState>((set, get) => ({
         return false;
       }
 
-      set({ rateConfig: data.config });
+      set({ rateConfig: data.config, fiatChannels: data.fiatChannels || get().fiatChannels });
       get().addToast({
         title: "Live OTC Rates Updated",
         description: `Buy: ${data.config.fiatSymbol}${data.config.buyRate.toLocaleString()} • Sell: ${data.config.fiatSymbol}${data.config.sellRate.toLocaleString()}`,

@@ -17,6 +17,13 @@ import {
   getTreasuryWalletForNetwork,
 } from "@/lib/web3";
 import { downloadReceiptAsFile } from "@/lib/receiptDownload";
+import { FiatCurrencyModal } from "@/components/FiatCurrencyModal";
+import {
+  FiatChannel,
+  isBuyChannelPermitted,
+  isSellChannelPermitted,
+  GLOBAL_FIAT_METADATA,
+} from "@/lib/fiatChannels";
 import {
   ArrowUpDown,
   ArrowLeft,
@@ -47,6 +54,9 @@ export default function CryptohiveExchangePage() {
     switchNetwork,
     usdtBalance,
     rateConfig,
+    fiatChannels,
+    selectedFiatCode,
+    setSelectedFiatCode,
     isLoadingRates,
     userOrders,
     userStats,
@@ -60,6 +70,7 @@ export default function CryptohiveExchangePage() {
   } = useApexStore();
 
   const [activeTab, setActiveTab] = useState<"BUY" | "SELL">("BUY");
+  const [isFiatPickerOpen, setIsFiatPickerOpen] = useState(false);
   const [activeView, setActiveView] = useState<"EXCHANGE" | "LEDGER">(
     "EXCHANGE"
   );
@@ -115,10 +126,57 @@ export default function CryptohiveExchangePage() {
     prevConnectedRef.current = isNowConnected;
   }, [isConnected, walletAddress]);
 
+  // Active Multi-Fiat Channel selected by user (or default from store/backend)
+  const activeFiatChannel: FiatChannel =
+    fiatChannels?.find((c) => c.code === selectedFiatCode) ||
+    fiatChannels?.[0] || {
+      code: rateConfig?.fiatCurrency || "NGN",
+      name: "Nigerian Naira",
+      symbol: rateConfig?.fiatSymbol || "₦",
+      flag: "🇳🇬",
+      usdReferenceRate: rateConfig?.buyRate ? rateConfig.buyRate / 1.018 : 1620,
+      buyRate: rateConfig?.buyRate || 1650,
+      sellRate: rateConfig?.sellRate || 1605,
+      buySpreadPercent: 1.85,
+      sellSpreadPercent: 0.93,
+      buyEnabled: false,
+      sellEnabled: false,
+      minTradeUsd: rateConfig?.minTradeUsd || 1.0,
+      maxTradeUsd: 50000,
+      bankName: rateConfig?.bankName || "",
+      bankAccountNumber: rateConfig?.bankAccountNumber || "",
+      bankAccountName: rateConfig?.bankAccountName || "",
+      bankRoutingNote: rateConfig?.bankRoutingNote || "",
+    };
+
+  const buyRate = activeFiatChannel.buyRate || rateConfig?.buyRate || 1650;
+  const sellRate = activeFiatChannel.sellRate || rateConfig?.sellRate || 1605;
+  const fiatSymbol = activeFiatChannel.symbol || rateConfig?.fiatSymbol || "₦";
+  const fiatCurrency = activeFiatChannel.code || rateConfig?.fiatCurrency || "NGN";
+  const minTradeUsd = activeFiatChannel.minTradeUsd || rateConfig?.minTradeUsd || 1.0;
+
+  const buyPermission = isBuyChannelPermitted(activeFiatChannel);
+  const sellPermission = isSellChannelPermitted(activeFiatChannel);
+  const hasAdminBankDetails = Boolean(
+    activeFiatChannel.bankAccountNumber?.trim() && activeFiatChannel.bankName?.trim()
+  );
+
   // Buy Form State (Fiat -> USDT)
   const [buyFiatInput, setBuyFiatInput] = useState<string>("50000");
   const [buyUsdtInput, setBuyUsdtInput] = useState<string>("");
   const [buyInputMode, setBuyInputMode] = useState<"FIAT" | "USDT">("FIAT");
+
+  // Re-align input amounts when currency changes
+  const prevFiatCodeRef = useRef(selectedFiatCode);
+  useEffect(() => {
+    if (prevFiatCodeRef.current !== selectedFiatCode) {
+      prevFiatCodeRef.current = selectedFiatCode;
+      const targetUsd = 100;
+      const newFiat = Math.round(targetUsd * buyRate);
+      setBuyFiatInput(String(newFiat));
+      setBuyUsdtInput("100.00");
+    }
+  }, [selectedFiatCode, buyRate]);
   const [paymentReference, setPaymentReference] = useState<string>("");
   const [senderAccountName, setSenderAccountName] = useState<string>("");
   const [isSubmittingBuy, setIsSubmittingBuy] = useState(false);
@@ -245,18 +303,16 @@ export default function CryptohiveExchangePage() {
   }, [submittedOrderReceipt, walletAddress, addToast]);
 
   useEffect(() => {
-    if (!rateConfig) return;
     if (buyInputMode === "FIAT") {
       const fiatVal = parseFloat(buyFiatInput) || 0;
-      const calculatedUsdt =
-        rateConfig.buyRate > 0 ? fiatVal / rateConfig.buyRate : 0;
+      const calculatedUsdt = buyRate > 0 ? fiatVal / buyRate : 0;
       setBuyUsdtInput(calculatedUsdt > 0 ? calculatedUsdt.toFixed(2) : "");
     } else {
       const usdtVal = parseFloat(buyUsdtInput) || 0;
-      const calculatedFiat = usdtVal * rateConfig.buyRate;
+      const calculatedFiat = usdtVal * buyRate;
       setBuyFiatInput(calculatedFiat > 0 ? calculatedFiat.toFixed(2) : "");
     }
-  }, [rateConfig, buyFiatInput, buyUsdtInput, buyInputMode]);
+  }, [buyRate, buyFiatInput, buyUsdtInput, buyInputMode]);
 
   const hideHeroOnInteract = () => {
     if (!isConnected || !walletAddress) {
@@ -307,14 +363,7 @@ export default function CryptohiveExchangePage() {
     e.preventDefault();
   };
 
-  // Computed Values & Strict $5 Minimum Limit Validation
-  const buyRate = rateConfig?.buyRate || 1650;
-  const sellRate = rateConfig?.sellRate || 1605;
-  const fiatSymbol = rateConfig?.fiatSymbol || "₦";
-  const fiatCurrency = rateConfig?.fiatCurrency || "NGN";
-  const minTradeUsd = rateConfig?.minTradeUsd || 1.0;
-  const hasAdminBankDetails = Boolean(rateConfig?.bankAccountNumber?.trim() && rateConfig?.bankName?.trim());
-
+  // Strict $5 Minimum Limit Calculations
   const minBuyFiatRequired = minTradeUsd * buyRate;
   const currentBuyFiat = parseFloat(buyFiatInput) || 0;
   const currentBuyUsdt = parseFloat(buyUsdtInput) || 0;
@@ -571,6 +620,28 @@ export default function CryptohiveExchangePage() {
   // Step Navigation Helpers (Supports Button Click, Touch Swipe, & Android/iOS WebView Back History)
   const goToDetailsStep = () => {
     hideHeroOnInteract();
+
+    if (activeTab === "BUY" && !buyPermission.permitted) {
+      addToast({
+        title: `${activeFiatChannel.code} Currently Unavailable`,
+        description:
+          buyPermission.reason ||
+          "Payment to this country is currently unavailable. Bank rails have not been assigned by the administrator.",
+        variant: "error",
+      });
+      return;
+    }
+
+    if (activeTab === "SELL" && !sellPermission.permitted) {
+      addToast({
+        title: `${activeFiatChannel.code} Payout Disabled`,
+        description:
+          sellPermission.reason ||
+          "Selling USDT to receive this currency is currently disabled by treasury admin.",
+        variant: "error",
+      });
+      return;
+    }
 
     if (activeTab === "BUY" && isBuyBelowMinimum) {
       addToast({
@@ -1381,18 +1452,26 @@ export default function CryptohiveExchangePage() {
                     <div className="flex justify-between items-center py-0.5">
                       <span className="text-zinc-400">Bank Name</span>
                       <span className="font-bold text-white">
-                        {rateConfig?.bankName || "Providus Corporate Treasury"}
+                        {activeFiatChannel.bankName ||
+                          rateConfig?.bankName ||
+                          "Pending Desk Assignment"}
                       </span>
                     </div>
                     <div className="flex justify-between items-center py-0.5">
                       <span className="text-zinc-400">Account No</span>
                       <div className="flex items-center gap-1.5 font-mono font-bold text-[#FFC700]">
-                        <span>{rateConfig?.bankAccountNumber || "9948201948"}</span>
+                        <span>
+                          {activeFiatChannel.bankAccountNumber ||
+                            rateConfig?.bankAccountNumber ||
+                            "Pending"}
+                        </span>
                         <button
                           type="button"
                           onClick={() =>
                             handleCopy(
-                              rateConfig.bankAccountNumber,
+                              activeFiatChannel.bankAccountNumber ||
+                                rateConfig?.bankAccountNumber ||
+                                "",
                               "receipt_bank_acc"
                             )
                           }
@@ -1410,7 +1489,9 @@ export default function CryptohiveExchangePage() {
                     <div className="flex justify-between items-center py-0.5">
                       <span className="text-zinc-400">Account Name</span>
                       <span className="font-bold text-white">
-                        {rateConfig?.bankAccountName || "CRYPTOHIVE DIGITAL TREASURY LTD"}
+                        {activeFiatChannel.bankAccountName ||
+                          rateConfig?.bankAccountName ||
+                          "Treasury Settlement"}
                       </span>
                     </div>
                     <div className="flex justify-between items-center py-0.5">
@@ -1642,9 +1723,16 @@ export default function CryptohiveExchangePage() {
                           className="w-full bg-transparent text-2xl sm:text-4xl font-black font-mono text-[#0A0B0E] focus:outline-none"
                         />
                       </div>
-                      <span className="text-xs sm:text-sm font-bold text-zinc-500 uppercase shrink-0">
-                        {fiatCurrency}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setIsFiatPickerOpen(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-black/10 hover:border-[#FFC700] hover:bg-[#FFF8DB] transition-all text-xs sm:text-sm font-extrabold text-[#0A0B0E] shrink-0 shadow-sm"
+                        title="Click to select another currency"
+                      >
+                        <span className="text-base leading-none">{activeFiatChannel.flag || "🌐"}</span>
+                        <span>{fiatCurrency}</span>
+                        <ArrowUpDown className="w-3.5 h-3.5 text-zinc-400" />
+                      </button>
                     </div>
 
                     {/* Preset Amount Pills */}
@@ -1768,6 +1856,37 @@ export default function CryptohiveExchangePage() {
                     </div>
                   )}
 
+                  {/* First-Page Buy Permission & Bank Details Availability Notification */}
+                  {!buyPermission.permitted && (
+                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col gap-2.5 text-xs text-amber-950">
+                      <div className="flex items-start gap-2.5">
+                        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <span className="font-extrabold text-sm text-[#0A0B0E] block">
+                            Payment for {activeFiatChannel.name} ({activeFiatChannel.code}) is Currently Unavailable
+                          </span>
+                          <p className="text-zinc-600 leading-relaxed text-[11px]">
+                            {buyPermission.reason ||
+                              "Corporate deposit rails for this currency are currently inactive. Account details have not been assigned by the treasury administrator."}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="pt-1 flex items-center justify-between border-t border-amber-500/20">
+                        <span className="text-[10px] font-bold text-amber-800">
+                          Try choosing another listed fiat currency
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsFiatPickerOpen(true)}
+                          className="px-3.5 py-1.5 rounded-full bg-[#0A0B0E] text-[#FFC700] font-bold text-xs hover:bg-zinc-800 transition-colors inline-flex items-center gap-1.5 shadow-sm"
+                        >
+                          <span>Change Currency</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Summary Breakdown Box */}
                   <div className="rounded-2xl bg-[#F7F8FA] p-4 space-y-2.5 text-xs hive-field-card">
                     <div className="flex items-center justify-between">
@@ -1818,11 +1937,15 @@ export default function CryptohiveExchangePage() {
                   <div className="pt-1">
                     <button
                       type="button"
-                      disabled={isBuyBelowMinimum}
+                      disabled={isBuyBelowMinimum || !buyPermission.permitted}
                       onClick={goToDetailsStep}
                       className="w-full py-4 px-6 rounded-full bg-[#0A0B0E] hover:bg-zinc-800 disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xs sm:text-sm shadow-xl transition-all flex items-center justify-center gap-2 active:scale-[0.99]"
                     >
-                      <span>Continue</span>
+                      <span>
+                        {!buyPermission.permitted
+                          ? `Payment Unavailable for ${fiatCurrency}`
+                          : "Continue"}
+                      </span>
                       <ArrowRight className="w-4 h-4 text-[#FFC700]" />
                     </button>
                   </div>
@@ -1943,14 +2066,18 @@ export default function CryptohiveExchangePage() {
                         </div>
                       </div>
 
-                      <div className="inline-flex items-center gap-2 px-3 sm:px-3.5 py-2 rounded-full bg-white border border-black/10 shadow-sm shrink-0">
-                        <span className="w-5 h-5 rounded-full bg-[#FFC700] text-black text-[10px] font-black flex items-center justify-center">
-                          {fiatSymbol}
+                      <button
+                        type="button"
+                        onClick={() => setIsFiatPickerOpen(true)}
+                        className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-full bg-white border border-black/10 hover:border-[#FFC700] hover:bg-[#FFF8DB] shadow-sm shrink-0 transition-all text-xs font-extrabold text-[#0A0B0E]"
+                        title="Click to select another payout currency"
+                      >
+                        <span className="text-base leading-none">
+                          {activeFiatChannel.flag || "🌐"}
                         </span>
-                        <span className="text-xs font-extrabold text-[#0A0B0E]">
-                          {fiatCurrency}
-                        </span>
-                      </div>
+                        <span>{fiatCurrency}</span>
+                        <ArrowUpDown className="w-3.5 h-3.5 text-zinc-400" />
+                      </button>
                     </div>
                   </div>
 
@@ -1963,6 +2090,37 @@ export default function CryptohiveExchangePage() {
                           ${minTradeUsd.toFixed(2)} USDT
                         </strong>
                         .
+                      </div>
+                    </div>
+                  )}
+
+                  {/* First-Page Sell Permission Availability Notification */}
+                  {!sellPermission.permitted && (
+                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col gap-2.5 text-xs text-amber-950">
+                      <div className="flex items-start gap-2.5">
+                        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <span className="font-extrabold text-sm text-[#0A0B0E] block">
+                            Payout in {activeFiatChannel.name} ({activeFiatChannel.code}) is Currently Disabled
+                          </span>
+                          <p className="text-zinc-600 leading-relaxed text-[11px]">
+                            {sellPermission.reason ||
+                              "Selling USDT to receive this currency is currently disabled by the treasury administrator."}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="pt-1 flex items-center justify-between border-t border-amber-500/20">
+                        <span className="text-[10px] font-bold text-amber-800">
+                          Try choosing another listed payout currency
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setIsFiatPickerOpen(true)}
+                          className="px-3.5 py-1.5 rounded-full bg-[#0A0B0E] text-[#FFC700] font-bold text-xs hover:bg-zinc-800 transition-colors inline-flex items-center gap-1.5 shadow-sm"
+                        >
+                          <span>Change Currency</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   )}
@@ -2022,11 +2180,15 @@ export default function CryptohiveExchangePage() {
                   <div className="pt-1">
                     <button
                       type="button"
-                      disabled={isSellBelowMinimum}
+                      disabled={isSellBelowMinimum || !sellPermission.permitted}
                       onClick={goToDetailsStep}
                       className="w-full py-4 px-6 rounded-full bg-[#0A0B0E] hover:bg-zinc-800 disabled:opacity-40 disabled:pointer-events-none text-white font-bold text-xs sm:text-sm shadow-xl transition-all flex items-center justify-center gap-2 active:scale-[0.99]"
                     >
-                      <span>Continue</span>
+                      <span>
+                        {!sellPermission.permitted
+                          ? `Payout Unavailable for ${fiatCurrency}`
+                          : "Continue"}
+                      </span>
                       <ArrowRight className="w-4 h-4 text-[#FFC700]" />
                     </button>
                   </div>
@@ -2142,7 +2304,7 @@ export default function CryptohiveExchangePage() {
                             Bank
                           </span>
                           <span className="font-bold text-[#0A0B0E]">
-                            {rateConfig?.bankName}
+                            {activeFiatChannel.bankName || rateConfig?.bankName || "Treasury Pending"}
                           </span>
                         </div>
                         <div className="p-3 rounded-xl bg-white border border-black/5 flex items-center justify-between">
@@ -2151,13 +2313,16 @@ export default function CryptohiveExchangePage() {
                               Account Number
                             </span>
                             <span className="font-mono font-extrabold text-[#0A0B0E]">
-                              {rateConfig?.bankAccountNumber}
+                              {activeFiatChannel.bankAccountNumber || rateConfig?.bankAccountNumber || "Pending"}
                             </span>
                           </div>
                           <button
                             type="button"
                             onClick={() =>
-                              handleCopy(rateConfig?.bankAccountNumber || "", "bank_acc")
+                              handleCopy(
+                                activeFiatChannel.bankAccountNumber || rateConfig?.bankAccountNumber || "",
+                                "bank_acc"
+                              )
                             }
                             className="p-1.5 rounded-lg bg-zinc-100 hover:bg-zinc-200 text-[#0A0B0E]"
                             title="Copy Account Number"
@@ -2174,10 +2339,17 @@ export default function CryptohiveExchangePage() {
                             Account Name
                           </span>
                           <span className="font-bold text-[#0A0B0E] text-[11px]">
-                            {rateConfig?.bankAccountName}
+                            {activeFiatChannel.bankAccountName || rateConfig?.bankAccountName || "TREASURY SETTLEMENT"}
                           </span>
                         </div>
                       </div>
+
+                      {activeFiatChannel.bankRoutingNote && (
+                        <div className="p-2.5 rounded-xl bg-white border border-black/5 text-[11px] text-zinc-600 flex items-center gap-2">
+                          <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span>{activeFiatChannel.bankRoutingNote}</span>
+                        </div>
+                      )}
 
                       {/* Auto-Generated Unique Payment Reference */}
                       <div className="p-3.5 rounded-xl bg-white border border-[#FDE68A] space-y-2.5">
@@ -2775,6 +2947,16 @@ export default function CryptohiveExchangePage() {
           </section>
         )}
       </main>
+
+      {/* Searchable Multi-Fiat Currency Selector Modal */}
+      <FiatCurrencyModal
+        isOpen={isFiatPickerOpen}
+        onClose={() => setIsFiatPickerOpen(false)}
+        mode={activeTab}
+        selectedCode={activeFiatChannel.code}
+        onSelect={(code) => setSelectedFiatCode(code)}
+        fiatChannels={fiatChannels}
+      />
     </div>
   );
 }

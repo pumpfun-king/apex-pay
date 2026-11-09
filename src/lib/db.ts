@@ -40,8 +40,8 @@ export const DEFAULT_CONFIG_FALLBACK = {
   bankName: "",
   bankAccountNumber: "",
   bankAccountName: "",
-  bankRoutingNote:
-    "Include your exact Cryptohive Order Reference ID in the transfer narration/memo.",
+  bankRoutingNote: "",
+  fiatChannelsJson: null as string | null,
   updatedBy: "SYSTEM_BOOTSTRAP",
   createdAt: new Date(),
   updatedAt: new Date(),
@@ -72,8 +72,8 @@ export async function ensureSystemConfig() {
           bankName: "",
           bankAccountNumber: "",
           bankAccountName: "",
-          bankRoutingNote:
-            "Include your exact Cryptohive Order Reference ID in the transfer narration/memo.",
+          bankRoutingNote: "",
+          fiatChannelsJson: null,
           updatedBy: "SYSTEM_BOOTSTRAP",
         },
       });
@@ -87,7 +87,7 @@ export async function ensureSystemConfig() {
               process.env.NEXT_PUBLIC_TREASURY_WALLET_ADDRESS ||
               "0x05179071c4a8298239bC1db971284EbbC450409D",
             details:
-              "Initialized Cryptohive DeFi Rate Engine (Non-Custodial Non-Simulated Web3 Treasury).",
+              "Initialized Cryptohive DeFi Rate Engine (Non-Custodial Multi-Fiat Treasury).",
           },
         });
       } catch {
@@ -99,8 +99,7 @@ export async function ensureSystemConfig() {
           where: { id: "default_config" },
           data: {
             bankAccountName: "",
-            bankRoutingNote:
-              "Include your exact Cryptohive Order Reference ID in the transfer narration/memo.",
+            bankRoutingNote: "",
           },
         });
       }

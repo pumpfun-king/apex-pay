@@ -19,10 +19,11 @@ model RateConfiguration {
   minTradeUsd         Float    @default(5.00)    // Strict $5 USD minimum limit
   maxTradeUsd         Float    @default(50000.00)
   treasuryWallet      String   @default("0x742d35Cc6634C0532925a3b844Bc454e4438f44e")
-  bankName            String   @default("Providus Bank / Mercury Treasury")
-  bankAccountNumber   String   @default("9948201948")
-  bankAccountName     String   @default("APEXPAY DIGITAL TREASURY LTD")
-  bankRoutingNote     String   @default("Include your Order Reference ID in the transfer narration.")
+  bankName            String   @default("")
+  bankAccountNumber   String   @default("")
+  bankAccountName     String   @default("")
+  bankRoutingNote     String   @default("")
+  fiatChannelsJson    String?
   updatedBy           String   @default("SYSTEM_INIT")
   updatedAt           DateTime @updatedAt
 }
