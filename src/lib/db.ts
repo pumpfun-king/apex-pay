@@ -23,7 +23,7 @@ if (process.env.NODE_ENV !== "production") {
   globalForPrisma.prisma = prisma;
 }
 
-const DEFAULT_CONFIG_FALLBACK = {
+export const DEFAULT_CONFIG_FALLBACK = {
   id: "default_config",
   fiatCurrency: "NGN",
   fiatSymbol: "₦",

@@ -1380,13 +1380,13 @@ export default function CryptohiveExchangePage() {
                     <div className="flex justify-between items-center py-0.5">
                       <span className="text-zinc-400">Bank Name</span>
                       <span className="font-bold text-white">
-                        {rateConfig.bankName}
+                        {rateConfig?.bankName || "Providus Corporate Treasury"}
                       </span>
                     </div>
                     <div className="flex justify-between items-center py-0.5">
                       <span className="text-zinc-400">Account No</span>
                       <div className="flex items-center gap-1.5 font-mono font-bold text-[#FFC700]">
-                        <span>{rateConfig.bankAccountNumber}</span>
+                        <span>{rateConfig?.bankAccountNumber || "9948201948"}</span>
                         <button
                           type="button"
                           onClick={() =>
@@ -1409,7 +1409,7 @@ export default function CryptohiveExchangePage() {
                     <div className="flex justify-between items-center py-0.5">
                       <span className="text-zinc-400">Account Name</span>
                       <span className="font-bold text-white">
-                        {rateConfig.bankAccountName}
+                        {rateConfig?.bankAccountName || "CRYPTOHIVE DIGITAL TREASURY LTD"}
                       </span>
                     </div>
                     <div className="flex justify-between items-center py-0.5">
@@ -2141,7 +2141,7 @@ export default function CryptohiveExchangePage() {
                             Bank
                           </span>
                           <span className="font-bold text-[#0A0B0E]">
-                            {rateConfig.bankName}
+                            {rateConfig?.bankName || "Providus Corporate Treasury"}
                           </span>
                         </div>
                         <div className="p-3 rounded-xl bg-white border border-black/5 flex items-center justify-between">
@@ -2150,14 +2150,13 @@ export default function CryptohiveExchangePage() {
                               Account Number
                             </span>
                             <span className="font-mono font-extrabold text-[#0A0B0E]">
-                              {rateConfig.bankAccountNumber}
+                              {rateConfig?.bankAccountNumber || "9948201948"}
                             </span>
                           </div>
                           <button
                             type="button"
                             onClick={() =>
-                              handleCopy(
-                                rateConfig.bankAccountNumber,
+                              handleCopy(rateConfig?.bankAccountNumber || "9948201948",
                                 "bank_acc"
                               )
                             }
@@ -2176,7 +2175,7 @@ export default function CryptohiveExchangePage() {
                             Account Name
                           </span>
                           <span className="font-bold text-[#0A0B0E] text-[11px]">
-                            {rateConfig.bankAccountName}
+                            {rateConfig?.bankAccountName || "CRYPTOHIVE DIGITAL TREASURY LTD"}
                           </span>
                         </div>
                       </div>

@@ -183,6 +183,27 @@ declare global {
   }
 }
 
+export const DEFAULT_CLIENT_RATE_CONFIG: RateConfig = {
+  id: "default_config",
+  fiatCurrency: "NGN",
+  fiatSymbol: "₦",
+  usdReferenceRate: 1620.0,
+  buyRate: 1650.0,
+  sellRate: 1605.0,
+  buySpreadPercent: 1.85,
+  sellSpreadPercent: 0.93,
+  minTradeUsd: 1.0,
+  maxTradeUsd: 50000.0,
+  treasuryWallet: "0x05179071c4a8298239bC1db971284EbbC450409D",
+  bankName: "Providus Corporate Treasury",
+  bankAccountNumber: "9948201948",
+  bankAccountName: "CRYPTOHIVE DIGITAL TREASURY LTD",
+  bankRoutingNote:
+    "Include your exact Cryptohive Order Reference ID in the transfer narration/memo.",
+  updatedBy: "SYSTEM_BOOTSTRAP",
+  updatedAt: new Date().toISOString(),
+};
+
 const STORAGE_KEY_WALLET = "cryptohive_connected_wallet_v2";
 
 export const useApexStore = create<ApexStoreState>((set, get) => ({
@@ -196,7 +217,7 @@ export const useApexStore = create<ApexStoreState>((set, get) => ({
   usdtBalance: 0,
   isWalletModalOpen: false,
 
-  rateConfig: null,
+  rateConfig: DEFAULT_CLIENT_RATE_CONFIG,
   isLoadingRates: true,
 
   userOrders: [],
