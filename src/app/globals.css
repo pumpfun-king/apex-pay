@@ -1,0 +1,399 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: radial-gradient(
+      circle at 50% 0%,
+      #ffffff 0%,
+      #eef0f4 55%,
+      #e3e6ed 100%
+    ),
+    #eef0f4;
+  color: #0a0b0e;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+  padding-bottom: env(safe-area-inset-bottom);
+  top: 0px !important;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes floatSlow {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideRight {
+  animation: slideInRight 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slideLeft {
+  animation: slideInLeft 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-float {
+  animation: floatSlow 4s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: floatSlow 4.5s ease-in-out 1.2s infinite;
+}
+
+/* ============================================================================
+   APPLE MAC OS GENIE EFFECT (Narrowing into a hole / Coming out of a hole)
+   Zero card-flip/skew — pure fluid aperture and vortex funnel contraction
+   Full screen expansion: 250vmax ensuring no edge/corner is ever covered
+   ============================================================================ */
+@keyframes macHoleIn {
+  0% {
+    opacity: 0;
+    clip-path: circle(0px at calc(100% - 24px) 32px);
+    transform: scale(0.01);
+    filter: blur(14px);
+  }
+  30% {
+    opacity: 0.9;
+    clip-path: circle(40vmax at calc(100% - 24px) 32px);
+    transform: scale3d(0.48, 0.42, 1);
+    filter: blur(4px);
+  }
+  65% {
+    opacity: 1;
+    clip-path: circle(110vmax at calc(100% - 24px) 32px);
+    transform: scale3d(0.92, 0.9, 1);
+    filter: blur(0px);
+  }
+  99% {
+    clip-path: circle(250vmax at calc(100% - 24px) 32px);
+  }
+  100% {
+    opacity: 1;
+    clip-path: none;
+    transform: scale3d(1, 1, 1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes macHoleOut {
+  0% {
+    opacity: 1;
+    clip-path: none;
+    transform: scale3d(1, 1, 1);
+    filter: blur(0px);
+  }
+  1% {
+    clip-path: circle(250vmax at calc(100% - 24px) 32px);
+  }
+  35% {
+    opacity: 0.95;
+    clip-path: circle(90vmax at calc(100% - 24px) 32px);
+    transform: scale3d(0.82, 0.78, 1);
+    filter: blur(0px);
+  }
+  70% {
+    opacity: 0.65;
+    clip-path: circle(30vmax at calc(100% - 24px) 32px);
+    transform: scale3d(0.3, 0.25, 1);
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 0;
+    clip-path: circle(0px at calc(100% - 24px) 32px);
+    transform: scale(0.01);
+    filter: blur(14px);
+  }
+}
+
+.animate-genieIn {
+  transform-origin: calc(100% - 24px) 32px;
+  animation: macHoleIn 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity, clip-path, filter;
+}
+
+.animate-genieOut {
+  transform-origin: calc(100% - 24px) 32px;
+  animation: macHoleOut 0.36s cubic-bezier(0.32, 0, 0.67, 0) forwards;
+  will-change: transform, opacity, clip-path, filter;
+}
+
+/* ============================================================================
+   UNDERLYING PAGE SUCK-INTO-HOLE & RESTORE-OUT-OF-HOLE
+   ============================================================================ */
+@keyframes pageHoleSuckIn {
+  0% {
+    opacity: 1;
+    clip-path: none;
+    transform: scale3d(1, 1, 1);
+    filter: blur(0px);
+  }
+  1% {
+    clip-path: circle(250vmax at calc(100% - 24px) 32px);
+  }
+  35% {
+    opacity: 0.9;
+    clip-path: circle(90vmax at calc(100% - 24px) 32px);
+    transform: scale3d(0.78, 0.72, 1);
+    filter: blur(0px);
+  }
+  70% {
+    opacity: 0.5;
+    clip-path: circle(28vmax at calc(100% - 24px) 32px);
+    transform: scale3d(0.25, 0.2, 1);
+    filter: blur(6px);
+  }
+  100% {
+    opacity: 0;
+    clip-path: circle(0px at calc(100% - 24px) 32px);
+    transform: scale(0.01);
+    filter: blur(14px);
+  }
+}
+
+@keyframes pageHoleRestoreOut {
+  0% {
+    opacity: 0;
+    clip-path: circle(0px at calc(100% - 24px) 32px);
+    transform: scale(0.01);
+    filter: blur(14px);
+  }
+  35% {
+    opacity: 0.85;
+    clip-path: circle(40vmax at calc(100% - 24px) 32px);
+    transform: scale3d(0.48, 0.42, 1);
+    filter: blur(4px);
+  }
+  70% {
+    opacity: 0.98;
+    clip-path: circle(110vmax at calc(100% - 24px) 32px);
+    transform: scale3d(0.92, 0.9, 1);
+    filter: blur(0px);
+  }
+  99% {
+    clip-path: circle(250vmax at calc(100% - 24px) 32px);
+  }
+  100% {
+    opacity: 1;
+    clip-path: none;
+    transform: scale3d(1, 1, 1);
+    filter: blur(0px);
+  }
+}
+
+.animate-pageSuckIn {
+  transform-origin: calc(100% - 24px) 32px;
+  animation: pageHoleSuckIn 0.38s cubic-bezier(0.32, 0, 0.67, 0) forwards;
+  will-change: transform, opacity, clip-path, filter;
+  pointer-events: none;
+}
+
+.animate-pageRestoreOut {
+  transform-origin: calc(100% - 24px) 32px;
+  animation: pageHoleRestoreOut 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity, clip-path, filter;
+}
+
+/* ============================================================================
+   ELEVATED CONTAINERS & HEADER SHADOWS (No Heavy Bottom Borders)
+   ============================================================================ */
+.hive-header-bar {
+  box-shadow: 0 10px 30px -6px rgba(10, 11, 14, 0.08);
+}
+
+.hive-container-card {
+  border: 1px solid rgba(10, 11, 14, 0.06);
+  box-shadow:
+    0 20px 50px -12px rgba(10, 11, 14, 0.12),
+    0 6px 18px -6px rgba(10, 11, 14, 0.06),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+}
+
+.hive-field-card {
+  border: 1px solid rgba(10, 11, 14, 0.05);
+  box-shadow:
+    0 6px 16px -6px rgba(10, 11, 14, 0.06),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.85);
+}
+
+/* Signature Cryptohive Gold & Obsidian Card Surface (Zero Green) */
+.hive-obsidian-card {
+  background: radial-gradient(
+      120% 90% at 90% 10%,
+      rgba(255, 199, 0, 0.22) 0%,
+      rgba(217, 119, 6, 0.1) 42%,
+      rgba(10, 11, 14, 0.99) 82%
+    ),
+    #0a0b0e;
+  box-shadow:
+    0 24px 56px -12px rgba(10, 11, 14, 0.4),
+    inset 0 1px 0 0 rgba(255, 199, 0, 0.3);
+}
+
+/* ============================================================================
+   TACTILE MOBILE APP BUTTON SYSTEM (Clean Soft Shadow, No Heavy Bottom Border)
+   ============================================================================ */
+button {
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  box-shadow:
+    0 6px 16px -3px rgba(10, 11, 14, 0.12),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.65);
+  transition:
+    transform 0.12s cubic-bezier(0.34, 1.56, 0.64, 1),
+    box-shadow 0.12s cubic-bezier(0.34, 1.56, 0.64, 1),
+    background-color 0.15s ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 10px 22px -4px rgba(10, 11, 14, 0.16),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+}
+
+button:active:not(:disabled) {
+  transform: translateY(1.5px) scale(0.985) !important;
+  box-shadow:
+    0 3px 8px -2px rgba(10, 11, 14, 0.12),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Primary Dark Obsidian Buttons */
+button[class*="bg-[#0A0B0E]"] {
+  box-shadow:
+    0 8px 20px -4px rgba(10, 11, 14, 0.28),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.2);
+}
+
+button[class*="bg-[#0A0B0E]"]:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 12px 26px -4px rgba(10, 11, 14, 0.35),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.28);
+}
+
+button[class*="bg-[#0A0B0E]"]:active:not(:disabled) {
+  transform: translateY(1.5px) scale(0.985) !important;
+  box-shadow:
+    0 4px 10px -2px rgba(10, 11, 14, 0.22),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+/* Gold Buttons */
+button[class*="bg-[#FFC700]"] {
+  box-shadow:
+    0 8px 20px -4px rgba(217, 119, 6, 0.32),
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.65);
+}
+
+button[class*="bg-[#FFC700]"]:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow:
+    0 12px 24px -4px rgba(217, 119, 6, 0.4),
+    inset 0 1.5px 0 0 rgba(255, 255, 255, 0.8);
+}
+
+button[class*="bg-[#FFC700]"]:active:not(:disabled) {
+  transform: translateY(1.5px) scale(0.985) !important;
+  box-shadow:
+    0 4px 10px -2px rgba(217, 119, 6, 0.22),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Remove up/down spinner stepper buttons from all number inputs */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield !important;
+  appearance: textfield !important;
+}
+
+/* Prevent iOS input zoom by ensuring >= 16px on mobile inputs where needed */
+@media screen and (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Seamless Google Translate integration (hide top toolbar frame) */
+iframe.goog-te-banner-frame,
+.goog-te-banner-frame.skiptranslate {
+  display: none !important;
+}

@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model RateConfiguration {
+  id                  String   @id @default("default_config")
+  fiatCurrency        String   @default("NGN")
+  fiatSymbol          String   @default("₦")
+  usdReferenceRate    Float    @default(1620.00) // 1 USD in local fiat for $5 min limit calculation
+  buyRate             Float    @default(1650.00) // Admin-set Buy Rate (Fiat per 1 USDT)
+  sellRate            Float    @default(1605.00) // Admin-set Sell Rate (Fiat per 1 USDT)
+  buySpreadPercent    Float    @default(1.85)
+  sellSpreadPercent   Float    @default(0.93)
+  minTradeUsd         Float    @default(5.00)    // Strict $5 USD minimum limit
+  maxTradeUsd         Float    @default(50000.00)
+  treasuryWallet      String   @default("0x742d35Cc6634C0532925a3b844Bc454e4438f44e")
+  bankName            String   @default("Providus Bank / Mercury Treasury")
+  bankAccountNumber   String   @default("9948201948")
+  bankAccountName     String   @default("APEXPAY DIGITAL TREASURY LTD")
+  bankRoutingNote     String   @default("Include your Order Reference ID in the transfer narration.")
+  updatedBy           String   @default("SYSTEM_INIT")
+  updatedAt           DateTime @updatedAt
+}
+
+model OtcOrder {
+  id                    String   @id @default(cuid())
+  referenceCode         String   @unique
+  orderType             String   // "BUY" | "SELL"
+  walletAddress         String
+  receivingWallet       String
+  fiatCurrency          String   @default("NGN")
+  fiatSymbol            String   @default("₦")
+  fiatAmount            Float
+  usdEquivalent         Float
+  usdtAmount            Float
+  exchangeRateApplied   Float
+  status                String   // "pending_payment" | "pending_fiat_payout" | "payment_confirmed" | "completed" | "cancelled" | "rejected"
+  
+  // Buy Crypto (Fiat -> USDT) specific fields
+  paymentReference      String?
+  senderAccountName     String?
+  treasuryPayoutTxHash  String?
+
+  // Sell Crypto (USDT -> Fiat) specific fields
+  userBankName          String?
+  userAccountNumber     String?
+  userAccountName       String?
+  cryptoDepositTxHash   String?
+  fiatPayoutReference   String?
+
+  networkChainId        Int      @default(1)
+  networkName           String   @default("Ethereum Mainnet")
+  adminNotes            String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  completedAt           DateTime?
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  action       String
+  actorType    String   // "USER" | "ADMIN" | "SYSTEM"
+  actorAddress String
+  orderId      String?
+  details      String
+  metadataJson String?
+  createdAt    DateTime @default(now())
+}
+
+model AdminNotification {
+  id             String   @id @default(cuid())
+  orderId        String
+  referenceCode  String
+  orderType      String
+  title          String
+  message        String
+  emailStatus    String   @default("dispatched") // "sent" | "simulated" | "failed"
+  telegramStatus String   @default("dispatched") // "sent" | "simulated" | "failed"
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+}

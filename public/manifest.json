@@ -1,0 +1,30 @@
+{
+  "name": "Cryptohive | Instant Web3 OTC Crypto Exchange",
+  "short_name": "Cryptohive",
+  "description": "Buy Crypto and Sell USDT instantly with live quotes, 0% OTC fees, $5 minimum trades, and automated Ethers.js treasury settlement.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FFFFFF",
+  "orientation": "portrait-primary",
+  "categories": ["finance", "cryptocurrency", "exchange", "web3"],
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
