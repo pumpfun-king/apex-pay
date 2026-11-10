@@ -1020,6 +1020,13 @@ export const useApexStore = create<ApexStoreState>((set, get) => ({
           return srvCh;
         });
 
+        const hadDiscrepancy = incomingChannels.some((srvCh: FiatChannel) => {
+          const locCh = currentChannels.find((c) => c.code === srvCh.code);
+          const srvHasBank = Boolean(srvCh.bankName?.trim() && srvCh.bankAccountNumber?.trim());
+          const locHasBank = Boolean(locCh?.bankName?.trim() && locCh?.bankAccountNumber?.trim());
+          return !srvHasBank && locHasBank;
+        });
+
         const finalChannels = mergedChannels.length > 0 ? mergedChannels : currentChannels;
         if (typeof window !== "undefined" && finalChannels.length > 0) {
           try {
@@ -1027,6 +1034,21 @@ export const useApexStore = create<ApexStoreState>((set, get) => ({
           } catch {
             // Ignore
           }
+        }
+
+        if (hadDiscrepancy && typeof window !== "undefined") {
+          const sessionAdmin = sessionStorage.getItem("chv_admin_auth") || "";
+          fetch("/api/rates", {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              ...(sessionAdmin ? { "x-admin-wallet": sessionAdmin } : {}),
+            },
+            body: JSON.stringify({
+              fiatChannels: finalChannels,
+              adminAddress: sessionAdmin,
+            }),
+          }).catch(() => {});
         }
 
         set({
