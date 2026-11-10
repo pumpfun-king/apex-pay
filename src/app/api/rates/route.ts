@@ -18,7 +18,7 @@ import {
   isValidSolanaAddress,
 } from "@/lib/web3";
 import { fetchLiveMarketRates } from "@/lib/rates";
-import { parseFiatChannels } from "@/lib/fiatChannels";
+import { parseFiatChannels, extractBankRoutingMemo } from "@/lib/fiatChannels";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +112,7 @@ export async function GET(req: NextRequest) {
         bankName,
         bankAccountNumber,
         bankAccountName,
+        bankRoutingNote: extractBankRoutingMemo(ch.bankRoutingNote || (isPrimary ? config.bankRoutingNote : "")),
         buyEnabled: hasBank ? (ch.buyEnabled ?? true) : false,
         sellEnabled: ch.sellEnabled ?? true,
       };
@@ -141,6 +142,7 @@ export async function GET(req: NextRequest) {
         bankName,
         bankAccountNumber,
         bankAccountName,
+        bankRoutingNote: extractBankRoutingMemo(ch.bankRoutingNote || (isPrimary ? DEFAULT_CONFIG_FALLBACK.bankRoutingNote : "")),
         buyEnabled: hasBank ? (ch.buyEnabled ?? true) : false,
         sellEnabled: ch.sellEnabled ?? true,
       };
@@ -326,6 +328,7 @@ export async function PUT(req: NextRequest) {
             bankName,
             bankAccountNumber,
             bankAccountName,
+            bankRoutingNote: extractBankRoutingMemo(c.bankRoutingNote || finalBankRoutingNote),
             buyEnabled: hasBank ? (c.buyEnabled ?? true) : false,
             sellEnabled: c.sellEnabled ?? true,
           };

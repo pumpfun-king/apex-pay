@@ -282,3 +282,24 @@ export function isSellChannelPermitted(channel?: FiatChannel | null): {
 
   return { permitted: true };
 }
+
+/**
+ * Extracts only the human-readable customer transfer instructions / memo note,
+ * stripping out any internal JSON config (such as adminWallets whitelist).
+ */
+export function extractBankRoutingMemo(rawNote?: string | null): string {
+  if (!rawNote || typeof rawNote !== "string") return "";
+  const trimmed = rawNote.trim();
+  if (trimmed.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (typeof parsed?.note === "string") {
+        return parsed.note.trim();
+      }
+      return "";
+    } catch {
+      return "";
+    }
+  }
+  return trimmed;
+}

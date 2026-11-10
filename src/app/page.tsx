@@ -23,6 +23,7 @@ import {
   isBuyChannelPermitted,
   isSellChannelPermitted,
   GLOBAL_FIAT_METADATA,
+  extractBankRoutingMemo,
 } from "@/lib/fiatChannels";
 import {
   ArrowUpDown,
@@ -146,10 +147,11 @@ export default function CryptohiveExchangePage() {
     rawActiveChannel?.bankAccountName?.trim() ||
     (isPrimaryCurrency ? rateConfig?.bankAccountName?.trim() : "") ||
     "";
-  const resolvedBankRoutingNote =
+  const resolvedBankRoutingNote = extractBankRoutingMemo(
     rawActiveChannel?.bankRoutingNote ||
-    (isPrimaryCurrency ? rateConfig?.bankRoutingNote : "") ||
-    "";
+      (isPrimaryCurrency ? rateConfig?.bankRoutingNote : "") ||
+      ""
+  );
 
   const hasAdminBankDetails = Boolean(
     resolvedBankName && resolvedBankAccountNumber
