@@ -2302,13 +2302,6 @@ export default function CryptohiveExchangePage() {
                         </div>
                       </div>
 
-                      {activeFiatChannel.bankRoutingNote && (
-                        <div className="p-2.5 rounded-xl bg-white border border-black/5 text-[11px] text-zinc-600 flex items-center gap-2">
-                          <Info className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                          <span>{activeFiatChannel.bankRoutingNote}</span>
-                        </div>
-                      )}
-
                       {/* Auto-Generated Unique Payment Reference */}
                       <div className="p-3.5 rounded-xl bg-white border border-[#FDE68A] space-y-2.5">
                         <div className="flex items-center justify-between gap-2">
