@@ -33,6 +33,7 @@ function resolveDatabaseUrl(): string {
 }
 
 const activeDbUrl = resolveDatabaseUrl();
+process.env.DATABASE_URL = activeDbUrl;
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;

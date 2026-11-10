@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import fs from "fs";
+import path from "path";
 import {
   ensureSystemConfig,
   prisma,
@@ -86,7 +88,18 @@ export async function GET(req: NextRequest) {
       config.bankRoutingNote
     );
 
-    const fiatChannels = parseFiatChannels((config as any)?.fiatChannelsJson);
+    let channelsJson = (config as any)?.fiatChannelsJson;
+    if (!channelsJson) {
+      try {
+        const tmpPath = path.join("/tmp", "fiatChannels.json");
+        if (fs.existsSync(tmpPath)) {
+          channelsJson = fs.readFileSync(tmpPath, "utf8");
+        }
+      } catch {
+        // Ignore
+      }
+    }
+    const fiatChannels = parseFiatChannels(channelsJson);
 
     return NextResponse.json({
       success: true,
@@ -305,6 +318,15 @@ export async function PUT(req: NextRequest) {
     }
 
     setInMemoryConfig(updated);
+
+    if (body.fiatChannels && Array.isArray(body.fiatChannels)) {
+      try {
+        const tmpPath = path.join("/tmp", "fiatChannels.json");
+        fs.writeFileSync(tmpPath, JSON.stringify(body.fiatChannels), "utf8");
+      } catch {
+        // Ignore write failure
+      }
+    }
 
     const networkTreasuryWallets = parseNetworkTreasuryWallets(
       updated.treasuryWallet
