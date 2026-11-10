@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureSystemConfig, prisma, DEFAULT_CONFIG_FALLBACK } from "@/lib/db";
+import {
+  ensureSystemConfig,
+  prisma,
+  DEFAULT_CONFIG_FALLBACK,
+  getInMemoryConfig,
+  setInMemoryConfig,
+} from "@/lib/db";
 import {
   isValidEvmAddress,
   isAdminWalletAddress,
@@ -16,7 +22,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    let config = await ensureSystemConfig();
+    const inMem = getInMemoryConfig();
+    let config = inMem || (await ensureSystemConfig());
     const liveMarket = await fetchLiveMarketRates();
 
     // Live Oracle Auto-Tracking Engine:
@@ -256,30 +263,48 @@ export async function PUT(req: NextRequest) {
       (((refRate - sellRate) / refRate) * 100).toFixed(2)
     );
 
-    const updated = await prisma.rateConfiguration.update({
-      where: { id: "default_config" },
-      data: {
-        fiatCurrency: body.fiatCurrency || currentConfig.fiatCurrency,
-        fiatSymbol: body.fiatSymbol || currentConfig.fiatSymbol,
-        usdReferenceRate: refRate,
-        buyRate,
-        sellRate,
-        buySpreadPercent,
-        sellSpreadPercent,
-        minTradeUsd,
-        maxTradeUsd,
-        treasuryWallet: finalTreasuryWallet,
-        bankName: body.bankName || currentConfig.bankName,
-        bankAccountNumber: body.bankAccountNumber || currentConfig.bankAccountNumber,
-        bankAccountName: body.bankAccountName || currentConfig.bankAccountName,
-        bankRoutingNote: finalBankRoutingNote,
-        fiatChannelsJson: body.fiatChannels ? JSON.stringify(body.fiatChannels) : (currentConfig as any)?.fiatChannelsJson,
-        updatedBy:
-          body.autoTrackMarket === false
-            ? "MANUAL_FIXED"
-            : `AUTOTRACK:SPREAD_${(buyRate - sellRate > 0 ? buyRate - sellRate : 37.5).toFixed(2)}`,
-      },
-    });
+    let configData = {
+      fiatCurrency: body.fiatCurrency || currentConfig.fiatCurrency || "NGN",
+      fiatSymbol: body.fiatSymbol || currentConfig.fiatSymbol || "₦",
+      usdReferenceRate: refRate,
+      buyRate,
+      sellRate,
+      buySpreadPercent,
+      sellSpreadPercent,
+      minTradeUsd,
+      maxTradeUsd,
+      treasuryWallet: finalTreasuryWallet,
+      bankName: body.bankName ?? currentConfig.bankName ?? "",
+      bankAccountNumber: body.bankAccountNumber ?? currentConfig.bankAccountNumber ?? "",
+      bankAccountName: body.bankAccountName ?? currentConfig.bankAccountName ?? "",
+      bankRoutingNote: finalBankRoutingNote,
+      fiatChannelsJson: body.fiatChannels ? JSON.stringify(body.fiatChannels) : (currentConfig as any)?.fiatChannelsJson,
+      updatedBy:
+        body.autoTrackMarket === false
+          ? "MANUAL_FIXED"
+          : `AUTOTRACK:SPREAD_${(buyRate - sellRate > 0 ? buyRate - sellRate : 37.5).toFixed(2)}`,
+    };
+
+    let updated: any;
+    try {
+      updated = await prisma.rateConfiguration.upsert({
+        where: { id: "default_config" },
+        update: configData,
+        create: {
+          id: "default_config",
+          ...configData,
+        },
+      });
+    } catch (dbErr) {
+      console.warn("Database rate update failed, persisting to in-memory config:", dbErr);
+      updated = {
+        id: "default_config",
+        ...configData,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+
+    setInMemoryConfig(updated);
 
     const networkTreasuryWallets = parseNetworkTreasuryWallets(
       updated.treasuryWallet
@@ -288,24 +313,31 @@ export async function PUT(req: NextRequest) {
       updated.bankRoutingNote
     );
 
-    await prisma.auditLog.create({
-      data: {
-        action: "ADMIN_RATE_UPDATED",
-        actorType: "ADMIN",
-        actorAddress: body.adminAddress || "ADMIN_DESK",
-        details: `Updated OTC Rates — Buy: ${updated.fiatSymbol}${updated.buyRate.toLocaleString()}/USDT (${buySpreadPercent >= 0 ? "+" : ""}${buySpreadPercent}%), Sell: ${updated.fiatSymbol}${updated.sellRate.toLocaleString()}/USDT (Spread: ${sellSpreadPercent}%).`,
-        metadataJson: JSON.stringify({
-          previousBuyRate: currentConfig.buyRate,
-          newBuyRate: updated.buyRate,
-          previousSellRate: currentConfig.sellRate,
-          newSellRate: updated.sellRate,
-        }),
-      },
-    });
+    try {
+      await prisma.auditLog.create({
+        data: {
+          action: "ADMIN_RATE_UPDATED",
+          actorType: "ADMIN",
+          actorAddress: body.adminAddress || "ADMIN_DESK",
+          details: `Updated OTC Rates — Buy: ${updated.fiatSymbol}${updated.buyRate.toLocaleString()}/USDT (${buySpreadPercent >= 0 ? "+" : ""}${buySpreadPercent}%), Sell: ${updated.fiatSymbol}${updated.sellRate.toLocaleString()}/USDT (Spread: ${sellSpreadPercent}%).`,
+          metadataJson: JSON.stringify({
+            previousBuyRate: currentConfig.buyRate,
+            newBuyRate: updated.buyRate,
+            previousSellRate: currentConfig.sellRate,
+            newSellRate: updated.sellRate,
+          }),
+        },
+      });
+    } catch {
+      // Ignore audit log failure in serverless environment
+    }
+
+    const fiatChannels = body.fiatChannels || parseFiatChannels(updated.fiatChannelsJson);
 
     return NextResponse.json({
       success: true,
       config: updated,
+      fiatChannels,
       networkTreasuryWallets,
       whitelistedAdminWallets,
     });
@@ -314,7 +346,7 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to update exchange rates.",
+        error: error instanceof Error ? error.message : "Failed to update exchange rates.",
       },
       { status: 500 }
     );

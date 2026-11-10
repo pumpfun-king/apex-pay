@@ -565,9 +565,13 @@ export default function CryptohiveSecretAdminVaultPage() {
     try {
       const ngnChannel =
         adminChannels.find((c) => c.code === "NGN") || adminChannels[0];
+      const sessionAdmin =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem("chv_admin_auth")
+          : null;
       const payload: any = {
         fiatChannels: adminChannels,
-        adminAddress: walletAddress || "",
+        adminAddress: walletAddress || sessionAdmin || "",
       };
       if (ngnChannel) {
         payload.buyRate = ngnChannel.buyRate;

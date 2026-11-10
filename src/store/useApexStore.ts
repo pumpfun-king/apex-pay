@@ -993,15 +993,21 @@ export const useApexStore = create<ApexStoreState>((set, get) => ({
   updateRates: async (payload) => {
     try {
       const { walletAddress } = get();
-      const adminHeaders: Record<string, string> = walletAddress
-        ? { "x-admin-wallet": walletAddress }
+      const sessionAdmin =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem("chv_admin_auth")
+          : null;
+      const effectiveAdmin =
+        payload.adminAddress || walletAddress || sessionAdmin || "";
+      const adminHeaders: Record<string, string> = effectiveAdmin
+        ? { "x-admin-wallet": effectiveAdmin }
         : {};
       const res = await fetch("/api/rates", {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...adminHeaders },
         body: JSON.stringify({
           ...payload,
-          adminAddress: payload.adminAddress || walletAddress,
+          adminAddress: effectiveAdmin,
         }),
       });
       const data = await res.json();
