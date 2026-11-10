@@ -51,13 +51,13 @@ export function generateReceiptHtml(
   const rateFormatted = `1 USDT = ${order.fiatSymbol || "₦"}${Number(order.exchangeRateApplied).toLocaleString()}`;
 
   const bankName = isBuy
-    ? rateConfig?.bankName || "Moniepoint MFB / Cryptohive Corporate"
+    ? (order as any).bankName || rateConfig?.bankName || "Corporate Treasury Bank"
     : order.userBankName || "Beneficiary Bank";
   const bankAccNumber = isBuy
-    ? rateConfig?.bankAccountNumber || "6513489201"
+    ? (order as any).bankAccountNumber || rateConfig?.bankAccountNumber || "—"
     : order.userAccountNumber || "—";
   const bankAccName = isBuy
-    ? rateConfig?.bankAccountName || "CRYPTOHIVE GLOBAL OTC LTD"
+    ? (order as any).bankAccountName || rateConfig?.bankAccountName || "Corporate Treasury"
     : order.userAccountName || "—";
 
   return `<!DOCTYPE html>

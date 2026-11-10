@@ -132,25 +132,13 @@ export default function CryptohiveExchangePage() {
     fiatChannels?.find((c) => c.code === selectedFiatCode) ||
     fiatChannels?.[0];
 
-  const isPrimaryCurrency =
-    (rawActiveChannel?.code || "NGN") === (rateConfig?.fiatCurrency || "NGN");
-
-  const resolvedBankName =
-    rawActiveChannel?.bankName?.trim() ||
-    (isPrimaryCurrency ? rateConfig?.bankName?.trim() : "") ||
-    "";
+  const resolvedBankName = rawActiveChannel?.bankName?.trim() || "";
   const resolvedBankAccountNumber =
-    rawActiveChannel?.bankAccountNumber?.trim() ||
-    (isPrimaryCurrency ? rateConfig?.bankAccountNumber?.trim() : "") ||
-    "";
+    rawActiveChannel?.bankAccountNumber?.trim() || "";
   const resolvedBankAccountName =
-    rawActiveChannel?.bankAccountName?.trim() ||
-    (isPrimaryCurrency ? rateConfig?.bankAccountName?.trim() : "") ||
-    "";
+    rawActiveChannel?.bankAccountName?.trim() || "";
   const resolvedBankRoutingNote = extractBankRoutingMemo(
-    rawActiveChannel?.bankRoutingNote ||
-      (isPrimaryCurrency ? rateConfig?.bankRoutingNote : "") ||
-      ""
+    rawActiveChannel?.bankRoutingNote || ""
   );
 
   const hasAdminBankDetails = Boolean(
@@ -158,9 +146,9 @@ export default function CryptohiveExchangePage() {
   );
 
   const activeFiatChannel: FiatChannel = {
-    code: rawActiveChannel?.code || rateConfig?.fiatCurrency || "NGN",
+    code: rawActiveChannel?.code || "NGN",
     name: rawActiveChannel?.name || "Nigerian Naira",
-    symbol: rawActiveChannel?.symbol || rateConfig?.fiatSymbol || "₦",
+    symbol: rawActiveChannel?.symbol || "₦",
     flag: rawActiveChannel?.flag || "🇳🇬",
     usdReferenceRate:
       rawActiveChannel?.usdReferenceRate ||
@@ -170,7 +158,7 @@ export default function CryptohiveExchangePage() {
     buySpreadPercent: rawActiveChannel?.buySpreadPercent || 1.85,
     sellSpreadPercent: rawActiveChannel?.sellSpreadPercent || 0.93,
     buyEnabled: hasAdminBankDetails
-      ? (rawActiveChannel && rawActiveChannel.bankName?.trim() && rawActiveChannel.buyEnabled === false ? false : true)
+      ? (rawActiveChannel?.buyEnabled !== false)
       : false,
     sellEnabled:
       rawActiveChannel?.sellEnabled !== undefined
@@ -2309,7 +2297,7 @@ export default function CryptohiveExchangePage() {
                             Account Name
                           </span>
                           <span className="font-bold text-[#0A0B0E] text-[11px]">
-                            {activeFiatChannel.bankAccountName || rateConfig?.bankAccountName || "TREASURY SETTLEMENT"}
+                            {activeFiatChannel.bankAccountName || "TREASURY SETTLEMENT"}
                           </span>
                         </div>
                       </div>

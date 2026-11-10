@@ -101,10 +101,9 @@ export async function GET(req: NextRequest) {
     }
     const rawChannels = parseFiatChannels(channelsJson);
     const fiatChannels = rawChannels.map((ch) => {
-      const isPrimary = ch.code === (config.fiatCurrency || "NGN");
-      const bankName = ch.bankName?.trim() || (isPrimary ? config.bankName?.trim() : "") || "";
-      const bankAccountNumber = ch.bankAccountNumber?.trim() || (isPrimary ? config.bankAccountNumber?.trim() : "") || "";
-      const bankAccountName = ch.bankAccountName?.trim() || (isPrimary ? config.bankAccountName?.trim() : "") || "";
+      const bankName = ch.bankName?.trim() || "";
+      const bankAccountNumber = ch.bankAccountNumber?.trim() || "";
+      const bankAccountName = ch.bankAccountName?.trim() || "";
       const hasBank = Boolean(bankName && bankAccountNumber);
 
       return {
@@ -112,7 +111,7 @@ export async function GET(req: NextRequest) {
         bankName,
         bankAccountNumber,
         bankAccountName,
-        bankRoutingNote: extractBankRoutingMemo(ch.bankRoutingNote || (isPrimary ? config.bankRoutingNote : "")),
+        bankRoutingNote: extractBankRoutingMemo(ch.bankRoutingNote),
         buyEnabled: hasBank ? (ch.buyEnabled ?? true) : false,
         sellEnabled: ch.sellEnabled ?? true,
       };
@@ -131,10 +130,9 @@ export async function GET(req: NextRequest) {
     console.warn("Using fallback rate config:", error);
     const fallbackRawChannels = parseFiatChannels((DEFAULT_CONFIG_FALLBACK as any)?.fiatChannelsJson);
     const fallbackFiatChannels = fallbackRawChannels.map((ch) => {
-      const isPrimary = ch.code === (DEFAULT_CONFIG_FALLBACK.fiatCurrency || "NGN");
-      const bankName = ch.bankName?.trim() || (isPrimary ? DEFAULT_CONFIG_FALLBACK.bankName?.trim() : "") || "";
-      const bankAccountNumber = ch.bankAccountNumber?.trim() || (isPrimary ? DEFAULT_CONFIG_FALLBACK.bankAccountNumber?.trim() : "") || "";
-      const bankAccountName = ch.bankAccountName?.trim() || (isPrimary ? DEFAULT_CONFIG_FALLBACK.bankAccountName?.trim() : "") || "";
+      const bankName = ch.bankName?.trim() || "";
+      const bankAccountNumber = ch.bankAccountNumber?.trim() || "";
+      const bankAccountName = ch.bankAccountName?.trim() || "";
       const hasBank = Boolean(bankName && bankAccountNumber);
 
       return {
@@ -142,7 +140,7 @@ export async function GET(req: NextRequest) {
         bankName,
         bankAccountNumber,
         bankAccountName,
-        bankRoutingNote: extractBankRoutingMemo(ch.bankRoutingNote || (isPrimary ? DEFAULT_CONFIG_FALLBACK.bankRoutingNote : "")),
+        bankRoutingNote: extractBankRoutingMemo(ch.bankRoutingNote),
         buyEnabled: hasBank ? (ch.buyEnabled ?? true) : false,
         sellEnabled: ch.sellEnabled ?? true,
       };
@@ -310,37 +308,36 @@ export async function PUT(req: NextRequest) {
       (((refRate - sellRate) / refRate) * 100).toFixed(2)
     );
 
-    const resolvedBankName = body.bankName ?? currentConfig.bankName ?? "";
-    const resolvedBankAccountNumber = body.bankAccountNumber ?? currentConfig.bankAccountNumber ?? "";
-    const resolvedBankAccountName = body.bankAccountName ?? currentConfig.bankAccountName ?? "";
     const resolvedPrimaryCode = body.fiatCurrency || currentConfig.fiatCurrency || "NGN";
 
     let finalFiatChannels = body.fiatChannels;
     if (Array.isArray(finalFiatChannels) && finalFiatChannels.length > 0) {
       finalFiatChannels = finalFiatChannels.map((c: any) => {
-        if (c.code === resolvedPrimaryCode) {
-          const bankName = c.bankName?.trim() || resolvedBankName;
-          const bankAccountNumber = c.bankAccountNumber?.trim() || resolvedBankAccountNumber;
-          const bankAccountName = c.bankAccountName?.trim() || resolvedBankAccountName;
-          const hasBank = Boolean(bankName && bankAccountNumber);
-          return {
-            ...c,
-            bankName,
-            bankAccountNumber,
-            bankAccountName,
-            bankRoutingNote: extractBankRoutingMemo(c.bankRoutingNote || finalBankRoutingNote),
-            buyEnabled: hasBank ? (c.buyEnabled ?? true) : false,
-            sellEnabled: c.sellEnabled ?? true,
-          };
-        }
-        const hasBank = Boolean(c.bankName?.trim() && c.bankAccountNumber?.trim());
+        const bankName = c.bankName?.trim() || "";
+        const bankAccountNumber = c.bankAccountNumber?.trim() || "";
+        const bankAccountName = c.bankAccountName?.trim() || "";
+        const hasBank = Boolean(bankName && bankAccountNumber);
         return {
           ...c,
+          bankName,
+          bankAccountNumber,
+          bankAccountName,
+          bankRoutingNote: extractBankRoutingMemo(c.bankRoutingNote),
           buyEnabled: hasBank ? (c.buyEnabled ?? true) : false,
           sellEnabled: c.sellEnabled ?? true,
         };
       });
     }
+
+    const firstChannelWithBank = Array.isArray(finalFiatChannels)
+      ? finalFiatChannels.find((c: any) => c.bankName && c.bankAccountNumber)
+      : null;
+    const resolvedBankName =
+      firstChannelWithBank?.bankName || (body.bankName ?? currentConfig.bankName ?? "");
+    const resolvedBankAccountNumber =
+      firstChannelWithBank?.bankAccountNumber || (body.bankAccountNumber ?? currentConfig.bankAccountNumber ?? "");
+    const resolvedBankAccountName =
+      firstChannelWithBank?.bankAccountName || (body.bankAccountName ?? currentConfig.bankAccountName ?? "");
 
     let configData = {
       fiatCurrency: resolvedPrimaryCode,

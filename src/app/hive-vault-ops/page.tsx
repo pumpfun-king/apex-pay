@@ -420,23 +420,6 @@ export default function CryptohiveSecretAdminVaultPage() {
     e.preventDefault();
     setIsSavingRates(true);
     try {
-      const primaryCode = rateConfig?.fiatCurrency || "NGN";
-      const updatedChannels = adminChannels.map((c) => {
-        if (c.code === primaryCode) {
-          return {
-            ...c,
-            bankName: bankNameInput.trim(),
-            bankAccountNumber: bankAccNumberInput.trim(),
-            bankAccountName: bankAccNameInput.trim(),
-            buyEnabled: Boolean(
-              bankNameInput.trim() && bankAccNumberInput.trim()
-            ),
-          };
-        }
-        return c;
-      });
-      setAdminChannels(updatedChannels);
-
       const ok = await updateRates({
         buyRate: parseFloat(buyRateInput),
         sellRate: parseFloat(sellRateInput),
@@ -449,10 +432,6 @@ export default function CryptohiveSecretAdminVaultPage() {
           101: solTreasuryInput.trim(),
         },
         adminWallets: whitelistedWallets,
-        bankName: bankNameInput.trim(),
-        bankAccountNumber: bankAccNumberInput.trim(),
-        bankAccountName: bankAccNameInput.trim(),
-        fiatChannels: updatedChannels,
         adminAddress: walletAddress || "",
       });
       if (ok) {
@@ -461,6 +440,11 @@ export default function CryptohiveSecretAdminVaultPage() {
           status: statusFilter,
           orderType: typeFilter,
           search: searchQuery,
+        });
+        addToast({
+          title: "Rates & Spreads Saved",
+          description: "Global OTC rates and treasury wallets updated successfully.",
+          variant: "success",
         });
       }
     } finally {
@@ -507,14 +491,6 @@ export default function CryptohiveSecretAdminVaultPage() {
           if (bName && bAcc) {
             updated.buyEnabled = true;
           }
-        }
-
-        // Keep top form synchronized if editing primary currency
-        const primaryCode = rateConfig?.fiatCurrency || "NGN";
-        if (code === primaryCode) {
-          if (field === "bankName") setBankNameInput(String(val));
-          if (field === "bankAccountNumber") setBankAccNumberInput(String(val));
-          if (field === "bankAccountName") setBankAccNameInput(String(val));
         }
 
         if (field === "usdReferenceRate") {
@@ -1454,43 +1430,25 @@ export default function CryptohiveSecretAdminVaultPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-bold text-zinc-600 mb-1">
-                      Corporate Bank Name
-                    </label>
-                    <input
-                      type="text"
-                      value={bankNameInput}
-                      onChange={(e) => setBankNameInput(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-[#F7F8FA] border border-black/10 text-xs text-[#0A0B0E] focus:outline-none focus:border-[#0A0B0E]"
-                      required
-                    />
+                <div className="p-3.5 rounded-2xl bg-amber-500/5 border border-amber-500/20 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2.5">
+                    <Building2 className="w-4 h-4 text-amber-600 shrink-0" />
+                    <div>
+                      <span className="text-xs font-bold text-[#0A0B0E] block">
+                        Currency Bank Accounts Configured Per-Fiat Rail
+                      </span>
+                      <p className="text-[11px] text-zinc-500">
+                        Receiving bank accounts are assigned strictly to their individual currency rails below.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-zinc-600 mb-1">
-                      Account Number
-                    </label>
-                    <input
-                      type="text"
-                      value={bankAccNumberInput}
-                      onChange={(e) => setBankAccNumberInput(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-[#F7F8FA] border border-black/10 text-xs font-mono text-[#0A0B0E] focus:outline-none focus:border-[#0A0B0E]"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-bold text-zinc-600 mb-1">
-                      Account Name
-                    </label>
-                    <input
-                      type="text"
-                      value={bankAccNameInput}
-                      onChange={(e) => setBankAccNameInput(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl bg-[#F7F8FA] border border-black/10 text-xs text-[#0A0B0E] focus:outline-none focus:border-[#0A0B0E]"
-                      required
-                    />
-                  </div>
+                  <a
+                    href="#fiat-rails-section"
+                    className="px-3.5 py-1.5 rounded-full bg-[#0A0B0E] text-[#FFC700] text-xs font-bold hover:bg-zinc-800 transition-colors inline-flex items-center gap-1.5 shadow-sm"
+                  >
+                    <span>Configure Bank Rails</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </a>
                 </div>
               </div>
 
@@ -1650,7 +1608,7 @@ export default function CryptohiveSecretAdminVaultPage() {
             accounts per currency, configure oracle reference rates and spreads, and add
             new fiats from the global metadata catalog.
            ========================================================================= */}
-        <section className="rounded-[24px] sm:rounded-[32px] bg-white border border-black/10 shadow-xl overflow-hidden hive-field-card">
+        <section id="fiat-rails-section" className="rounded-[24px] sm:rounded-[32px] bg-white border border-black/10 shadow-xl overflow-hidden hive-field-card">
           {/* Header */}
           <div className="p-5 sm:p-7 border-b border-black/[0.06] bg-[#FAFAFA] flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1">
