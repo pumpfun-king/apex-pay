@@ -605,33 +605,47 @@ export default function CryptohiveSecretAdminVaultPage() {
   const handleSaveMultiFiatRails = async () => {
     setIsSavingChannels(true);
     try {
-      const ngnChannel =
-        adminChannels.find((c) => c.code === "NGN") || adminChannels[0];
+      const sanitizedChannels = adminChannels.map((c) => {
+        const hasBank = Boolean(c.bankName?.trim() && c.bankAccountNumber?.trim());
+        return {
+          ...c,
+          bankName: c.bankName?.trim() || "",
+          bankAccountNumber: c.bankAccountNumber?.trim() || "",
+          bankAccountName: c.bankAccountName?.trim() || "",
+          buyEnabled: hasBank ? (c.buyEnabled ?? true) : false,
+          sellEnabled: c.sellEnabled ?? true,
+        };
+      });
+
+      const primaryCode = rateConfig?.fiatCurrency || "NGN";
+      const primaryChannel =
+        sanitizedChannels.find((c) => c.code === primaryCode) || sanitizedChannels[0];
       const sessionAdmin =
         typeof window !== "undefined"
           ? sessionStorage.getItem("chv_admin_auth")
           : null;
       const payload: any = {
-        fiatChannels: adminChannels,
+        fiatChannels: sanitizedChannels,
         adminAddress: walletAddress || sessionAdmin || "",
       };
-      if (ngnChannel) {
-        payload.buyRate = ngnChannel.buyRate;
-        payload.sellRate = ngnChannel.sellRate;
-        payload.usdReferenceRate = ngnChannel.usdReferenceRate;
-        if (ngnChannel.bankName) payload.bankName = ngnChannel.bankName;
-        if (ngnChannel.bankAccountNumber)
-          payload.bankAccountNumber = ngnChannel.bankAccountNumber;
-        if (ngnChannel.bankAccountName)
-          payload.bankAccountName = ngnChannel.bankAccountName;
+      if (primaryChannel) {
+        payload.buyRate = primaryChannel.buyRate;
+        payload.sellRate = primaryChannel.sellRate;
+        payload.usdReferenceRate = primaryChannel.usdReferenceRate;
+        if (primaryChannel.bankName) payload.bankName = primaryChannel.bankName;
+        if (primaryChannel.bankAccountNumber)
+          payload.bankAccountNumber = primaryChannel.bankAccountNumber;
+        if (primaryChannel.bankAccountName)
+          payload.bankAccountName = primaryChannel.bankAccountName;
       }
 
       const ok = await updateRates(payload);
       if (ok) {
+        setAdminChannels(sanitizedChannels);
         await fetchRates();
         addToast({
           title: "Multi-Fiat Rails Saved! 🚀",
-          description: `Persisted ${adminChannels.length} fiat channels with their buy/sell permissions and corporate bank rails.`,
+          description: `Persisted ${sanitizedChannels.length} fiat channels with their buy/sell permissions and corporate bank rails.`,
           variant: "success",
         });
       }

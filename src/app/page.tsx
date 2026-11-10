@@ -167,10 +167,9 @@ export default function CryptohiveExchangePage() {
     sellRate: rawActiveChannel?.sellRate || rateConfig?.sellRate || 1605,
     buySpreadPercent: rawActiveChannel?.buySpreadPercent || 1.85,
     sellSpreadPercent: rawActiveChannel?.sellSpreadPercent || 0.93,
-    buyEnabled:
-      rawActiveChannel?.buyEnabled !== undefined
-        ? rawActiveChannel.buyEnabled
-        : hasAdminBankDetails,
+    buyEnabled: hasAdminBankDetails
+      ? (rawActiveChannel && rawActiveChannel.bankName?.trim() && rawActiveChannel.buyEnabled === false ? false : true)
+      : false,
     sellEnabled:
       rawActiveChannel?.sellEnabled !== undefined
         ? rawActiveChannel.sellEnabled

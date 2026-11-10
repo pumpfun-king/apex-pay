@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
     );
 
     let channelsJson = (config as any)?.fiatChannelsJson;
-    if (!channelsJson) {
+    if (!channelsJson || channelsJson === "[]") {
       try {
         const tmpPath = path.join("/tmp", "fiatChannels.json");
         if (fs.existsSync(tmpPath)) {
@@ -99,7 +99,23 @@ export async function GET(req: NextRequest) {
         // Ignore
       }
     }
-    const fiatChannels = parseFiatChannels(channelsJson);
+    const rawChannels = parseFiatChannels(channelsJson);
+    const fiatChannels = rawChannels.map((ch) => {
+      const isPrimary = ch.code === (config.fiatCurrency || "NGN");
+      const bankName = ch.bankName?.trim() || (isPrimary ? config.bankName?.trim() : "") || "";
+      const bankAccountNumber = ch.bankAccountNumber?.trim() || (isPrimary ? config.bankAccountNumber?.trim() : "") || "";
+      const bankAccountName = ch.bankAccountName?.trim() || (isPrimary ? config.bankAccountName?.trim() : "") || "";
+      const hasBank = Boolean(bankName && bankAccountNumber);
+
+      return {
+        ...ch,
+        bankName,
+        bankAccountNumber,
+        bankAccountName,
+        buyEnabled: hasBank ? (ch.buyEnabled ?? true) : false,
+        sellEnabled: ch.sellEnabled ?? true,
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -112,7 +128,23 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.warn("Using fallback rate config:", error);
-    const fallbackFiatChannels = parseFiatChannels((DEFAULT_CONFIG_FALLBACK as any)?.fiatChannelsJson);
+    const fallbackRawChannels = parseFiatChannels((DEFAULT_CONFIG_FALLBACK as any)?.fiatChannelsJson);
+    const fallbackFiatChannels = fallbackRawChannels.map((ch) => {
+      const isPrimary = ch.code === (DEFAULT_CONFIG_FALLBACK.fiatCurrency || "NGN");
+      const bankName = ch.bankName?.trim() || (isPrimary ? DEFAULT_CONFIG_FALLBACK.bankName?.trim() : "") || "";
+      const bankAccountNumber = ch.bankAccountNumber?.trim() || (isPrimary ? DEFAULT_CONFIG_FALLBACK.bankAccountNumber?.trim() : "") || "";
+      const bankAccountName = ch.bankAccountName?.trim() || (isPrimary ? DEFAULT_CONFIG_FALLBACK.bankAccountName?.trim() : "") || "";
+      const hasBank = Boolean(bankName && bankAccountNumber);
+
+      return {
+        ...ch,
+        bankName,
+        bankAccountNumber,
+        bankAccountName,
+        buyEnabled: hasBank ? (ch.buyEnabled ?? true) : false,
+        sellEnabled: ch.sellEnabled ?? true,
+      };
+    });
 
     return NextResponse.json({
       success: true,
@@ -276,8 +308,39 @@ export async function PUT(req: NextRequest) {
       (((refRate - sellRate) / refRate) * 100).toFixed(2)
     );
 
+    const resolvedBankName = body.bankName ?? currentConfig.bankName ?? "";
+    const resolvedBankAccountNumber = body.bankAccountNumber ?? currentConfig.bankAccountNumber ?? "";
+    const resolvedBankAccountName = body.bankAccountName ?? currentConfig.bankAccountName ?? "";
+    const resolvedPrimaryCode = body.fiatCurrency || currentConfig.fiatCurrency || "NGN";
+
+    let finalFiatChannels = body.fiatChannels;
+    if (Array.isArray(finalFiatChannels) && finalFiatChannels.length > 0) {
+      finalFiatChannels = finalFiatChannels.map((c: any) => {
+        if (c.code === resolvedPrimaryCode) {
+          const bankName = c.bankName?.trim() || resolvedBankName;
+          const bankAccountNumber = c.bankAccountNumber?.trim() || resolvedBankAccountNumber;
+          const bankAccountName = c.bankAccountName?.trim() || resolvedBankAccountName;
+          const hasBank = Boolean(bankName && bankAccountNumber);
+          return {
+            ...c,
+            bankName,
+            bankAccountNumber,
+            bankAccountName,
+            buyEnabled: hasBank ? (c.buyEnabled ?? true) : false,
+            sellEnabled: c.sellEnabled ?? true,
+          };
+        }
+        const hasBank = Boolean(c.bankName?.trim() && c.bankAccountNumber?.trim());
+        return {
+          ...c,
+          buyEnabled: hasBank ? (c.buyEnabled ?? true) : false,
+          sellEnabled: c.sellEnabled ?? true,
+        };
+      });
+    }
+
     let configData = {
-      fiatCurrency: body.fiatCurrency || currentConfig.fiatCurrency || "NGN",
+      fiatCurrency: resolvedPrimaryCode,
       fiatSymbol: body.fiatSymbol || currentConfig.fiatSymbol || "₦",
       usdReferenceRate: refRate,
       buyRate,
@@ -287,11 +350,13 @@ export async function PUT(req: NextRequest) {
       minTradeUsd,
       maxTradeUsd,
       treasuryWallet: finalTreasuryWallet,
-      bankName: body.bankName ?? currentConfig.bankName ?? "",
-      bankAccountNumber: body.bankAccountNumber ?? currentConfig.bankAccountNumber ?? "",
-      bankAccountName: body.bankAccountName ?? currentConfig.bankAccountName ?? "",
+      bankName: resolvedBankName,
+      bankAccountNumber: resolvedBankAccountNumber,
+      bankAccountName: resolvedBankAccountName,
       bankRoutingNote: finalBankRoutingNote,
-      fiatChannelsJson: body.fiatChannels ? JSON.stringify(body.fiatChannels) : (currentConfig as any)?.fiatChannelsJson,
+      fiatChannelsJson: finalFiatChannels
+        ? JSON.stringify(finalFiatChannels)
+        : (currentConfig as any)?.fiatChannelsJson,
       updatedBy:
         body.autoTrackMarket === false
           ? "MANUAL_FIXED"
@@ -319,10 +384,10 @@ export async function PUT(req: NextRequest) {
 
     setInMemoryConfig(updated);
 
-    if (body.fiatChannels && Array.isArray(body.fiatChannels)) {
+    if (finalFiatChannels && Array.isArray(finalFiatChannels)) {
       try {
         const tmpPath = path.join("/tmp", "fiatChannels.json");
-        fs.writeFileSync(tmpPath, JSON.stringify(body.fiatChannels), "utf8");
+        fs.writeFileSync(tmpPath, JSON.stringify(finalFiatChannels), "utf8");
       } catch {
         // Ignore write failure
       }
@@ -354,7 +419,7 @@ export async function PUT(req: NextRequest) {
       // Ignore audit log failure in serverless environment
     }
 
-    const fiatChannels = body.fiatChannels || parseFiatChannels(updated.fiatChannelsJson);
+    const fiatChannels = finalFiatChannels || parseFiatChannels(updated.fiatChannelsJson);
 
     return NextResponse.json({
       success: true,
