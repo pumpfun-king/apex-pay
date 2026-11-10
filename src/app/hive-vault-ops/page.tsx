@@ -420,6 +420,23 @@ export default function CryptohiveSecretAdminVaultPage() {
     e.preventDefault();
     setIsSavingRates(true);
     try {
+      const primaryCode = rateConfig?.fiatCurrency || "NGN";
+      const updatedChannels = adminChannels.map((c) => {
+        if (c.code === primaryCode) {
+          return {
+            ...c,
+            bankName: bankNameInput.trim(),
+            bankAccountNumber: bankAccNumberInput.trim(),
+            bankAccountName: bankAccNameInput.trim(),
+            buyEnabled: Boolean(
+              bankNameInput.trim() && bankAccNumberInput.trim()
+            ),
+          };
+        }
+        return c;
+      });
+      setAdminChannels(updatedChannels);
+
       const ok = await updateRates({
         buyRate: parseFloat(buyRateInput),
         sellRate: parseFloat(sellRateInput),
@@ -435,6 +452,7 @@ export default function CryptohiveSecretAdminVaultPage() {
         bankName: bankNameInput.trim(),
         bankAccountNumber: bankAccNumberInput.trim(),
         bankAccountName: bankAccNameInput.trim(),
+        fiatChannels: updatedChannels,
         adminAddress: walletAddress || "",
       });
       if (ok) {
@@ -475,6 +493,30 @@ export default function CryptohiveSecretAdminVaultPage() {
       prev.map((c) => {
         if (c.code !== code) return c;
         const updated = { ...c, [field]: val };
+
+        // Automatically enable buy if bank name and account number are non-empty
+        if (field === "bankName" || field === "bankAccountNumber") {
+          const bName = (
+            field === "bankName" ? String(val) : updated.bankName || ""
+          ).trim();
+          const bAcc = (
+            field === "bankAccountNumber"
+              ? String(val)
+              : updated.bankAccountNumber || ""
+          ).trim();
+          if (bName && bAcc) {
+            updated.buyEnabled = true;
+          }
+        }
+
+        // Keep top form synchronized if editing primary currency
+        const primaryCode = rateConfig?.fiatCurrency || "NGN";
+        if (code === primaryCode) {
+          if (field === "bankName") setBankNameInput(String(val));
+          if (field === "bankAccountNumber") setBankAccNumberInput(String(val));
+          if (field === "bankAccountName") setBankAccNameInput(String(val));
+        }
+
         if (field === "usdReferenceRate") {
           const ref = Number(val) || 1;
           updated.buyRate = Number(

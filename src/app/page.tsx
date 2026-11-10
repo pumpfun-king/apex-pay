@@ -127,27 +127,61 @@ export default function CryptohiveExchangePage() {
   }, [isConnected, walletAddress]);
 
   // Active Multi-Fiat Channel selected by user (or default from store/backend)
-  const activeFiatChannel: FiatChannel =
+  const rawActiveChannel =
     fiatChannels?.find((c) => c.code === selectedFiatCode) ||
-    fiatChannels?.[0] || {
-      code: rateConfig?.fiatCurrency || "NGN",
-      name: "Nigerian Naira",
-      symbol: rateConfig?.fiatSymbol || "₦",
-      flag: "🇳🇬",
-      usdReferenceRate: rateConfig?.buyRate ? rateConfig.buyRate / 1.018 : 1620,
-      buyRate: rateConfig?.buyRate || 1650,
-      sellRate: rateConfig?.sellRate || 1605,
-      buySpreadPercent: 1.85,
-      sellSpreadPercent: 0.93,
-      buyEnabled: false,
-      sellEnabled: false,
-      minTradeUsd: rateConfig?.minTradeUsd || 1.0,
-      maxTradeUsd: 50000,
-      bankName: rateConfig?.bankName || "",
-      bankAccountNumber: rateConfig?.bankAccountNumber || "",
-      bankAccountName: rateConfig?.bankAccountName || "",
-      bankRoutingNote: rateConfig?.bankRoutingNote || "",
-    };
+    fiatChannels?.[0];
+
+  const isPrimaryCurrency =
+    (rawActiveChannel?.code || "NGN") === (rateConfig?.fiatCurrency || "NGN");
+
+  const resolvedBankName =
+    rawActiveChannel?.bankName?.trim() ||
+    (isPrimaryCurrency ? rateConfig?.bankName?.trim() : "") ||
+    "";
+  const resolvedBankAccountNumber =
+    rawActiveChannel?.bankAccountNumber?.trim() ||
+    (isPrimaryCurrency ? rateConfig?.bankAccountNumber?.trim() : "") ||
+    "";
+  const resolvedBankAccountName =
+    rawActiveChannel?.bankAccountName?.trim() ||
+    (isPrimaryCurrency ? rateConfig?.bankAccountName?.trim() : "") ||
+    "";
+  const resolvedBankRoutingNote =
+    rawActiveChannel?.bankRoutingNote ||
+    (isPrimaryCurrency ? rateConfig?.bankRoutingNote : "") ||
+    "";
+
+  const hasAdminBankDetails = Boolean(
+    resolvedBankName && resolvedBankAccountNumber
+  );
+
+  const activeFiatChannel: FiatChannel = {
+    code: rawActiveChannel?.code || rateConfig?.fiatCurrency || "NGN",
+    name: rawActiveChannel?.name || "Nigerian Naira",
+    symbol: rawActiveChannel?.symbol || rateConfig?.fiatSymbol || "₦",
+    flag: rawActiveChannel?.flag || "🇳🇬",
+    usdReferenceRate:
+      rawActiveChannel?.usdReferenceRate ||
+      (rateConfig?.buyRate ? rateConfig.buyRate / 1.018 : 1620),
+    buyRate: rawActiveChannel?.buyRate || rateConfig?.buyRate || 1650,
+    sellRate: rawActiveChannel?.sellRate || rateConfig?.sellRate || 1605,
+    buySpreadPercent: rawActiveChannel?.buySpreadPercent || 1.85,
+    sellSpreadPercent: rawActiveChannel?.sellSpreadPercent || 0.93,
+    buyEnabled:
+      rawActiveChannel?.buyEnabled !== undefined
+        ? rawActiveChannel.buyEnabled
+        : hasAdminBankDetails,
+    sellEnabled:
+      rawActiveChannel?.sellEnabled !== undefined
+        ? rawActiveChannel.sellEnabled
+        : true,
+    minTradeUsd: rawActiveChannel?.minTradeUsd || rateConfig?.minTradeUsd || 1.0,
+    maxTradeUsd: rawActiveChannel?.maxTradeUsd || 50000,
+    bankName: resolvedBankName,
+    bankAccountNumber: resolvedBankAccountNumber,
+    bankAccountName: resolvedBankAccountName,
+    bankRoutingNote: resolvedBankRoutingNote,
+  };
 
   const buyRate = activeFiatChannel.buyRate || rateConfig?.buyRate || 1650;
   const sellRate = activeFiatChannel.sellRate || rateConfig?.sellRate || 1605;
@@ -157,9 +191,6 @@ export default function CryptohiveExchangePage() {
 
   const buyPermission = isBuyChannelPermitted(activeFiatChannel);
   const sellPermission = isSellChannelPermitted(activeFiatChannel);
-  const hasAdminBankDetails = Boolean(
-    activeFiatChannel.bankAccountNumber?.trim() && activeFiatChannel.bankName?.trim()
-  );
 
   // Buy Form State (Fiat -> USDT)
   const [buyFiatInput, setBuyFiatInput] = useState<string>("50000");

@@ -59,8 +59,8 @@ export const DEFAULT_INITIAL_FIAT_CHANNELS: FiatChannel[] = [
     sellRate: 1605.0,
     buySpreadPercent: 1.85,
     sellSpreadPercent: 0.93,
-    buyEnabled: false, // Disabled until admin enters bank details
-    sellEnabled: false, // Disabled until admin explicitly checks permission
+    buyEnabled: true,
+    sellEnabled: true,
     minTradeUsd: 1.0,
     maxTradeUsd: 50000.0,
     bankName: "",
@@ -78,8 +78,8 @@ export const DEFAULT_INITIAL_FIAT_CHANNELS: FiatChannel[] = [
     sellRate: 127.5,
     buySpreadPercent: 1.8,
     sellSpreadPercent: 1.5,
-    buyEnabled: false,
-    sellEnabled: false,
+    buyEnabled: true,
+    sellEnabled: true,
     minTradeUsd: 1.0,
     maxTradeUsd: 50000.0,
     bankName: "",
@@ -97,8 +97,8 @@ export const DEFAULT_INITIAL_FIAT_CHANNELS: FiatChannel[] = [
     sellRate: 15.3,
     buySpreadPercent: 2.0,
     sellSpreadPercent: 1.9,
-    buyEnabled: false,
-    sellEnabled: false,
+    buyEnabled: true,
+    sellEnabled: true,
     minTradeUsd: 1.0,
     maxTradeUsd: 50000.0,
     bankName: "",
@@ -116,8 +116,8 @@ export const DEFAULT_INITIAL_FIAT_CHANNELS: FiatChannel[] = [
     sellRate: 17.8,
     buySpreadPercent: 1.6,
     sellSpreadPercent: 1.6,
-    buyEnabled: false,
-    sellEnabled: false,
+    buyEnabled: true,
+    sellEnabled: true,
     minTradeUsd: 1.0,
     maxTradeUsd: 50000.0,
     bankName: "",
@@ -135,8 +135,8 @@ export const DEFAULT_INITIAL_FIAT_CHANNELS: FiatChannel[] = [
     sellRate: 0.985,
     buySpreadPercent: 1.5,
     sellSpreadPercent: 1.5,
-    buyEnabled: false,
-    sellEnabled: false,
+    buyEnabled: true,
+    sellEnabled: true,
     minTradeUsd: 1.0,
     maxTradeUsd: 50000.0,
     bankName: "",
@@ -154,8 +154,8 @@ export const DEFAULT_INITIAL_FIAT_CHANNELS: FiatChannel[] = [
     sellRate: 0.905,
     buySpreadPercent: 1.6,
     sellSpreadPercent: 1.6,
-    buyEnabled: false,
-    sellEnabled: false,
+    buyEnabled: true,
+    sellEnabled: true,
     minTradeUsd: 1.0,
     maxTradeUsd: 50000.0,
     bankName: "",
@@ -173,8 +173,8 @@ export const DEFAULT_INITIAL_FIAT_CHANNELS: FiatChannel[] = [
     sellRate: 0.775,
     buySpreadPercent: 1.6,
     sellSpreadPercent: 1.6,
-    buyEnabled: false,
-    sellEnabled: false,
+    buyEnabled: true,
+    sellEnabled: true,
     minTradeUsd: 1.0,
     maxTradeUsd: 50000.0,
     bankName: "",
@@ -243,24 +243,19 @@ export function isBuyChannelPermitted(channel?: FiatChannel | null): {
     channel.bankAccountNumber?.trim() && channel.bankName?.trim()
   );
 
-  if (!channel.buyEnabled && !hasBankDetails) {
-    return {
-      permitted: false,
-      reason: `Deposit rails for ${channel.code} (${channel.name}) are currently paused. Bank account details have not been assigned by the administrator.`,
-    };
-  }
-
-  if (!channel.buyEnabled) {
-    return {
-      permitted: false,
-      reason: `Buying USDT with ${channel.code} is currently disabled by the treasury administrator.`,
-    };
-  }
-
+  // If corporate bank details have not been set by admin, block with clear notification
   if (!hasBankDetails) {
     return {
       permitted: false,
-      reason: `Deposit account details for ${channel.code} are not yet configured in the treasury database.`,
+      reason: `Deposit account details for ${channel.code} (${channel.name}) are not yet configured in the treasury database.`,
+    };
+  }
+
+  // If bank details exist, but buy permission is explicitly toggled off by admin
+  if (channel.buyEnabled === false) {
+    return {
+      permitted: false,
+      reason: `Buying USDT with ${channel.code} is currently paused by the treasury administrator.`,
     };
   }
 
