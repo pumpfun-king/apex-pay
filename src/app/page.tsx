@@ -1886,37 +1886,6 @@ export default function CryptohiveExchangePage() {
                     </div>
                   )}
 
-                  {/* First-Page Buy Permission & Bank Details Availability Notification */}
-                  {!buyPermission.permitted && (
-                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col gap-2.5 text-xs text-amber-950">
-                      <div className="flex items-start gap-2.5">
-                        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                        <div className="space-y-1">
-                          <span className="font-extrabold text-sm text-[#0A0B0E] block">
-                            Payment for {activeFiatChannel.name} ({activeFiatChannel.code}) is Currently Unavailable
-                          </span>
-                          <p className="text-zinc-600 leading-relaxed text-[11px]">
-                            {buyPermission.reason ||
-                              "Corporate deposit rails for this currency are currently inactive. Account details have not been assigned by the treasury administrator."}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="pt-1 flex items-center justify-between border-t border-amber-500/20">
-                        <span className="text-[10px] font-bold text-amber-800">
-                          Try choosing another listed fiat currency
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setIsFiatPickerOpen(true)}
-                          className="px-3.5 py-1.5 rounded-full bg-[#0A0B0E] text-[#FFC700] font-bold text-xs hover:bg-zinc-800 transition-colors inline-flex items-center gap-1.5 shadow-sm"
-                        >
-                          <span>Change Currency</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
                   {/* Summary Breakdown Box */}
                   <div className="rounded-2xl bg-[#F7F8FA] p-4 space-y-2.5 text-xs hive-field-card">
                     <div className="flex items-center justify-between">
@@ -2120,37 +2089,6 @@ export default function CryptohiveExchangePage() {
                           ${minTradeUsd.toFixed(2)} USDT
                         </strong>
                         .
-                      </div>
-                    </div>
-                  )}
-
-                  {/* First-Page Sell Permission Availability Notification */}
-                  {!sellPermission.permitted && (
-                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col gap-2.5 text-xs text-amber-950">
-                      <div className="flex items-start gap-2.5">
-                        <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                        <div className="space-y-1">
-                          <span className="font-extrabold text-sm text-[#0A0B0E] block">
-                            Payout in {activeFiatChannel.name} ({activeFiatChannel.code}) is Currently Disabled
-                          </span>
-                          <p className="text-zinc-600 leading-relaxed text-[11px]">
-                            {sellPermission.reason ||
-                              "Selling USDT to receive this currency is currently disabled by the treasury administrator."}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="pt-1 flex items-center justify-between border-t border-amber-500/20">
-                        <span className="text-[10px] font-bold text-amber-800">
-                          Try choosing another listed payout currency
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setIsFiatPickerOpen(true)}
-                          className="px-3.5 py-1.5 rounded-full bg-[#0A0B0E] text-[#FFC700] font-bold text-xs hover:bg-zinc-800 transition-colors inline-flex items-center gap-1.5 shadow-sm"
-                        >
-                          <span>Change Currency</span>
-                          <ArrowRight className="w-3.5 h-3.5" />
-                        </button>
                       </div>
                     </div>
                   )}
