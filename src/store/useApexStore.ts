@@ -212,6 +212,24 @@ export const DEFAULT_CLIENT_RATE_CONFIG: RateConfig = {
 };
 
 const STORAGE_KEY_WALLET = "cryptohive_connected_wallet_v2";
+const STORAGE_KEY_FIAT_CHANNELS = "cryptohive_persisted_fiat_channels_v3";
+
+function getInitialFiatChannels(): FiatChannel[] {
+  if (typeof window !== "undefined") {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_FIAT_CHANNELS);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // Fallback to default
+    }
+  }
+  return [...DEFAULT_INITIAL_FIAT_CHANNELS];
+}
 
 export const useApexStore = create<ApexStoreState>((set, get) => ({
   walletAddress: null,
@@ -226,7 +244,7 @@ export const useApexStore = create<ApexStoreState>((set, get) => ({
 
   rateConfig: DEFAULT_CLIENT_RATE_CONFIG,
   isLoadingRates: true,
-  fiatChannels: [...DEFAULT_INITIAL_FIAT_CHANNELS],
+  fiatChannels: getInitialFiatChannels(),
   selectedFiatCode: "NGN",
   setSelectedFiatCode: (code: string) => set({ selectedFiatCode: code }),
 
@@ -979,9 +997,41 @@ export const useApexStore = create<ApexStoreState>((set, get) => ({
       const res = await fetch("/api/rates", { cache: "no-store" });
       const data = await res.json();
       if (data.success && data.config) {
+        const currentChannels = get().fiatChannels || [];
+        const incomingChannels = Array.isArray(data.fiatChannels) ? data.fiatChannels : [];
+
+        // Intelligently merge: do not allow incoming empty bank details from cold lambdas to wipe out configured channels
+        const mergedChannels = incomingChannels.map((srvCh: FiatChannel) => {
+          const locCh = currentChannels.find((c) => c.code === srvCh.code);
+          const srvHasBank = Boolean(srvCh.bankName?.trim() && srvCh.bankAccountNumber?.trim());
+          const locHasBank = Boolean(locCh?.bankName?.trim() && locCh?.bankAccountNumber?.trim());
+
+          if (!srvHasBank && locHasBank && locCh) {
+            return {
+              ...srvCh,
+              bankName: locCh.bankName,
+              bankAccountNumber: locCh.bankAccountNumber,
+              bankAccountName: locCh.bankAccountName,
+              bankRoutingNote: locCh.bankRoutingNote,
+              buyEnabled: locCh.buyEnabled,
+              sellEnabled: locCh.sellEnabled,
+            };
+          }
+          return srvCh;
+        });
+
+        const finalChannels = mergedChannels.length > 0 ? mergedChannels : currentChannels;
+        if (typeof window !== "undefined" && finalChannels.length > 0) {
+          try {
+            localStorage.setItem(STORAGE_KEY_FIAT_CHANNELS, JSON.stringify(finalChannels));
+          } catch {
+            // Ignore
+          }
+        }
+
         set({
           rateConfig: data.config,
-          fiatChannels: data.fiatChannels || get().fiatChannels,
+          fiatChannels: finalChannels,
           isLoadingRates: false,
         });
       }
@@ -1002,6 +1052,18 @@ export const useApexStore = create<ApexStoreState>((set, get) => ({
       const adminHeaders: Record<string, string> = effectiveAdmin
         ? { "x-admin-wallet": effectiveAdmin }
         : {};
+
+      if (payload.fiatChannels && Array.isArray(payload.fiatChannels)) {
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(STORAGE_KEY_FIAT_CHANNELS, JSON.stringify(payload.fiatChannels));
+          } catch {
+            // Ignore
+          }
+        }
+        set({ fiatChannels: payload.fiatChannels });
+      }
+
       const res = await fetch("/api/rates", {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...adminHeaders },
@@ -1020,7 +1082,16 @@ export const useApexStore = create<ApexStoreState>((set, get) => ({
         return false;
       }
 
-      set({ rateConfig: data.config, fiatChannels: data.fiatChannels || get().fiatChannels });
+      const finalChannels = data.fiatChannels || payload.fiatChannels || get().fiatChannels;
+      if (typeof window !== "undefined" && finalChannels) {
+        try {
+          localStorage.setItem(STORAGE_KEY_FIAT_CHANNELS, JSON.stringify(finalChannels));
+        } catch {
+          // Ignore
+        }
+      }
+
+      set({ rateConfig: data.config, fiatChannels: finalChannels });
       get().addToast({
         title: "Live OTC Rates Updated",
         description: `Buy: ${data.config.fiatSymbol}${data.config.buyRate.toLocaleString()} • Sell: ${data.config.fiatSymbol}${data.config.sellRate.toLocaleString()}`,

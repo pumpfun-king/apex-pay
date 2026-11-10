@@ -244,12 +244,6 @@ export default function CryptohiveSecretAdminVaultPage() {
         rateConfig.bankRoutingNote
       );
       setWhitelistedWallets(currentAdmins);
-
-      if (fiatChannels && fiatChannels.length > 0) {
-        setAdminChannels(fiatChannels);
-      } else if (rateConfig.fiatChannelsJson) {
-        setAdminChannels(parseFiatChannels(rateConfig.fiatChannelsJson));
-      }
     }
   }, [rateConfig]);
 

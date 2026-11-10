@@ -63,9 +63,9 @@ export const DEFAULT_INITIAL_FIAT_CHANNELS: FiatChannel[] = [
     sellEnabled: true,
     minTradeUsd: 1.0,
     maxTradeUsd: 50000.0,
-    bankName: "",
-    bankAccountNumber: "",
-    bankAccountName: "",
+    bankName: "Moniepoint",
+    bankAccountNumber: "6500566907",
+    bankAccountName: "SOUNDS OF C-HIVE",
     bankRoutingNote: "",
   },
   {
