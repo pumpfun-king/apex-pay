@@ -535,10 +535,13 @@ async function sendAdminEmailAlert(
   const resendKey = process.env.RESEND_API_KEY?.trim();
   const sendgridKey = process.env.SENDGRID_API_KEY?.trim();
   const adminEmail =
-    process.env.ADMIN_NOTIFICATION_EMAIL || "treasury-ops@cryptohive.io";
-  const fromEmail =
+    process.env.ADMIN_NOTIFICATION_EMAIL?.trim() || "cryptohiveng@gmail.com";
+  let fromEmail =
     process.env.EMAIL_FROM_ADDRESS ||
-    "Cryptohive DeFi Desk <alerts@cryptohive.io>";
+    "Cryptohive DeFi Desk <onboarding@resend.dev>";
+  if (resendKey && fromEmail.includes("cryptohive.io")) {
+    fromEmail = "Cryptohive DeFi Desk <onboarding@resend.dev>";
+  }
 
   const isBuy = order.orderType === "BUY";
   const event = options?.eventType || "ORDER_SUBMITTED";
